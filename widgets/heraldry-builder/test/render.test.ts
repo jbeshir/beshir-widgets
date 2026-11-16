@@ -68,21 +68,21 @@ describe('the field layer', () => {
 describe('ordinary layers', () => {
   it('fill a plain ordinary in one tincture', () => {
     const l = layer(nd(arms('azure', group(ordinary('bordure'), 'or'))), 1, 'ordinary');
-    expect(l.fill).toEqual(solidFill('or'));
-    expect(l.fillRule).toBe('evenodd');
-    expect(layer(nd(arms('azure', group(ordinary('fess'), 'or'))), 1, 'ordinary').fillRule).toBe('nonzero');
+    expect(l.parts[0].fill).toEqual(solidFill('or'));
+    expect(l.parts[0].fillRule).toBe('evenodd');
+    expect(layer(nd(arms('azure', group(ordinary('fess'), 'or'))), 1, 'ordinary').parts[0].fillRule).toBe('nonzero');
   });
 
   it('fill a counterchanged ordinary once for each field region it lies on', () => {
     const fess = layer(nd(arms(div('per-pale', 'or', 'azure'), group(ordinary('fess'), 'counterchanged'))), 1, 'ordinary');
-    expect(painted(fess.fill).map((f) => f.tincture)).toEqual(['azure', 'or']);
-    expect(painted(fess.fill).every((f) => f.clip !== null)).toBe(true);
+    expect(painted(fess.parts[0].fill).map((f) => f.tincture)).toEqual(['azure', 'or']);
+    expect(painted(fess.parts[0].fill).every((f) => f.clip !== null)).toBe(true);
     const chief = layer(nd(arms(div('per-fess', 'or', 'azure'), group(ordinary('chief'), 'counterchanged'))), 1, 'ordinary');
-    expect(painted(chief.fill).map((f) => f.tincture)).toEqual(['azure']);
+    expect(painted(chief.parts[0].fill).map((f) => f.tincture)).toEqual(['azure']);
   });
 
   it('paint nothing when counterchanged on a plain field', () => {
-    expect(painted(layer(nd(arms('or', group(ordinary('fess'), 'counterchanged'))), 1, 'ordinary').fill)).toEqual([]);
+    expect(painted(layer(nd(arms('or', group(ordinary('fess'), 'counterchanged'))), 1, 'ordinary').parts[0].fill)).toEqual([]);
   });
 });
 

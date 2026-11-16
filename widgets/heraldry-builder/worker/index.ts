@@ -35,7 +35,7 @@
 //   POST   /api/recover/withdraw  -> { token }; uses the token and withdraws the entry
 
 import {
-  API_ERROR, DEFAULT_FIELD_SHAPE, FIELD_SHAPES, MIXED_PRIMARY, asObject, blazon, candidateKey, checkResponse, cleanContact, cleanDisplayName, cleanEmail,
+  API_ERROR, ANY_PRIMARY, DEFAULT_FIELD_SHAPE, FIELD_SHAPES, MIXED_PRIMARY, asObject, blazon, candidateKey, checkResponse, cleanContact, cleanDisplayName, cleanEmail,
   buildSearchText, deriveTags, isFieldShape, isSupported, normalise, parseSearchParams, readability, registrationOrder, reportUniqueness, resolve,
   searchParamsFromUrl, signature, type ApiErrorCode, type CandidateKey, type CheckableEntry, type Contact, type Design, type FieldShape, type Issue,
   type RegistryRef, type TakenReport, type TokenProblem,
@@ -291,9 +291,11 @@ function invalidDesign(issues: Issue[]): Response {
  * The order is not asked of SQL: an ORDER BY makes SQLite scan the registry by creation time instead of using the key index.
  */
 export async function loadCandidates(env: Pick<Env, 'DB'>, registryId: string, key: CandidateKey): Promise<ScanRow[]> {
-  const [primary, primaryBinds]: [string, string[]] = key.primary === null ? ['primary_key IS NULL', []]
+  // A design read as stripes too (ANY_PRIMARY) may conflict with every entry, and every entry with one.
+  const [primary, primaryBinds]: [string, string[]] = key.primary === ANY_PRIMARY ? ['1', []]
+    : key.primary === null ? ['(primary_key IS NULL OR primary_key = ?)', [ANY_PRIMARY]]
     : key.primary === MIXED_PRIMARY ? ['primary_key IS NOT NULL', []]
-    : ['primary_key IN (?, ?)', [key.primary, MIXED_PRIMARY]];
+    : ['primary_key IN (?, ?, ?)', [key.primary, MIXED_PRIMARY, ANY_PRIMARY]];
   // A fieldless badge (null partition) may conflict with any field and every field with a badge.
   const [partition, partitionBinds]: [string, string[]] = key.partition === null ? ['1', []] : ['(partition_key IS NULL OR partition_key = ?)', [key.partition]];
   const { results } = await env.DB.prepare(

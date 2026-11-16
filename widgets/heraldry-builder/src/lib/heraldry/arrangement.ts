@@ -6,7 +6,8 @@ import {
   groundTincture, groupAt, hostOf, itemKey, notSupported, type Arrangement, type Design, type Group, type GroupPath, type LineDir, type Pattern, type Position, POSITIONS,
 } from './design';
 import { CHARGES, type ChargeId, type Posture } from './charges';
-import { ORDINARY_KIND, type OrdinaryType } from './ordinaries';
+import { ORDINARY_KIND, familyOfTreated, type OrdinaryType } from './ordinaries';
+import { specOf, type OrdinarySpec } from './ordinary-geometry';
 import type { Tincture } from './tinctures';
 import { contrastFailure } from './contrast';
 import type { Division } from './divisions';
@@ -112,8 +113,8 @@ export function layoutWords(l: Layout): string {
 
 // ── Where a group sits ──────────────────────────────────────────────────────
 
-/** Which peripheral ordinaries a design has, as far as the charges set on its field are concerned. */
-export type Peripheral = 'none' | 'chief' | 'bordure' | 'chief-bordure';
+/** Which peripheral ordinaries a design has, as far as the charges set on its field are concerned: a bordure that carries charges is drawn wider. */
+export type Peripheral = 'none' | 'chief' | 'bordure' | 'chief-bordure' | 'charged-bordure' | 'chief-charged-bordure';
 /** The room a primary leaves for a secondary: the top, the bottom, a corner, or all around. */
 export type Yield = 'none' | 'chief' | 'base' | 'canton' | 'around';
 /** A co-primary group's slice of the slots the total count of primary charges is laid out in. */
@@ -128,6 +129,8 @@ export const isSecondaryPosition = (p: Position | null): p is SecondaryPosition 
 export const HALF_POSITIONS = ['dexter', 'sinister', 'dexter-chief', 'sinister-chief', 'dexter-base', 'sinister-base'] as const;
 export type HalfPosition = (typeof HALF_POSITIONS)[number];
 export const isHalfPosition = (p: Position | null): p is HalfPosition => (HALF_POSITIONS as readonly (Position | null)[]).includes(p);
+/** A quarter of the field, as a half position names it. */
+export type QuarterPosition = Exclude<HalfPosition, 'dexter' | 'sinister'>;
 
 /** The layouts of a primary charge group of `count` in a half or quarter: one charge alone, two in pale or in fess, three or four in rows; more don't fit. */
 const MAX_IN_HALF = 4;
@@ -145,7 +148,7 @@ export function halfLayouts(position: HalfPosition, count: number): Layout[] {
  * forced into the part they contrast with): the first part's place, the second's. Per quarterly, the first quarter of each part.
  */
 const PART_POSITIONS: Partial<Record<Division, readonly [Position, Position]>> = {
-  'per-fess': ['chief', 'base'], 'per-chevron': ['chief', 'base'], 'per-pale': ['dexter', 'sinister'],
+  'per-fess': ['chief', 'base'], 'per-chevron': ['chief', 'base'], 'per-chevron-inverted': ['chief', 'base'], 'per-pale': ['dexter', 'sinister'],
   'per-bend': ['sinister-chief', 'dexter-base'], 'per-bend-sinister': ['dexter-chief', 'sinister-base'], quarterly: ['dexter-chief', 'sinister-chief'],
 };
 
@@ -160,38 +163,54 @@ function forcedLayoutIn(position: Position, count: number, quarterly: boolean): 
 /** The contexts whose charges are laid out in the shield's frame by the generic engine: not charges on the primary charges, which are laid out in those, nor charges overall, which stand as a lone primary does. */
 export type GroundContext = Exclude<LayoutContext, { k: 'on-charge' | 'overall' }>;
 
+/**
+ * The peripherals beside the chief and bordure that charges set on the field (or on a band) keep clear of — a base, a point pointed, a
+ * canton, a quarter, a gyron, any number of them — as specs, in the design's order; [] when there are none.
+ */
+export type KeepOut = readonly OrdinarySpec[];
+
 /** The context of a primary charge group. */
-export interface FieldContext { k: 'field'; peripheral: Peripheral; yields: Yield; share: Share | null }
+export interface FieldContext { k: 'field'; peripheral: Peripheral; keepOut: KeepOut; yields: Yield; share: Share | null }
 
 /** The primary charges a group of charges is on, as they are drawn: what `contextSlots` needs to find each of them and the room its drawing offers. */
 export interface HostCharges { charge: ChargeId; posture: Posture | null; count: number; layout: Layout; context: FieldContext }
 
 export type LayoutContext =
   | FieldContext                                                                 // primary charge group
-  | { k: 'between'; ordinary: OrdinaryType; peripheral: Peripheral }             // secondary 'between'
-  | { k: 'around'; peripheral: Peripheral; primary: { count: number; layout: Layout } } // secondary 'between', around the primary charges
-  | { k: 'position'; position: SecondaryPosition; ordinary: OrdinaryType | null; peripheral: Peripheral } // secondary 'position', beside the primary ordinary (or charges)
-  | { k: 'on'; ordinary: OrdinaryType; peripheral: Peripheral }                  // tertiary on an ordinary (incl. chief)
+  | { k: 'between'; ordinary: OrdinarySpec; peripheral: Peripheral; keepOut: KeepOut } // secondary 'between'
+  | { k: 'around'; peripheral: Peripheral; keepOut: KeepOut; primary: { count: number; layout: Layout } } // secondary 'between', around the primary charges
+  | { k: 'position'; position: SecondaryPosition; ordinary: OrdinarySpec | null; peripheral: Peripheral; keepOut: KeepOut } // secondary 'position', beside the primary ordinary (or charges)
+  | { k: 'on'; ordinary: OrdinarySpec; peripheral: Peripheral; keepOut: KeepOut } // tertiary on an ordinary (incl. chief)
   | { k: 'on-charge'; host: HostCharges }                                        // tertiary on each of the primary charges
   | { k: 'overall'; peripheral: Peripheral };                                    // overall: one charge, or two crossed, across the middle of the free field
 
-/** The context of a lone primary charge group: nothing yielded, no co-primary. */
-export const fieldContext = (peripheral: Peripheral): FieldContext => ({ k: 'field', peripheral, yields: 'none', share: null });
+/** The context of a lone primary charge group: nothing yielded, no co-primary, no peripherals but a chief or bordure. */
+export const fieldContext = (peripheral: Peripheral): FieldContext => ({ k: 'field', peripheral, keepOut: [], yields: 'none', share: null });
 
-export const hasChief = (p: Peripheral): boolean => p === 'chief' || p === 'chief-bordure';
-export const hasBordure = (p: Peripheral): boolean => p === 'bordure' || p === 'chief-bordure';
+export const hasChief = (p: Peripheral): boolean => p === 'chief' || p === 'chief-bordure' || p === 'chief-charged-bordure';
+export const hasBordure = (p: Peripheral): boolean => p !== 'none' && p !== 'chief';
+export const hasChargedBordure = (p: Peripheral): boolean => p === 'charged-bordure' || p === 'chief-charged-bordure';
+/** The same peripherals without the chief. */
+export const withoutChief = (p: Peripheral): Peripheral => (p === 'chief' ? 'none' : p === 'chief-bordure' ? 'bordure' : p === 'chief-charged-bordure' ? 'charged-bordure' : p);
 
-/** The chief and bordure a design has beside `except` (the host a charge group sits on is not its own peripheral). */
+/** The chief and bordure a design has beside `except` (the host a charge group sits on is not its own peripheral), the bordure charged when it carries charges. */
 function peripheralOf(d: Design, except: Group | null = null): Peripheral {
-  const has = (type: OrdinaryType) => d.groups.some((g) => g !== except && g.role === 'peripheral' && g.item.k === 'ordinary' && g.item.type === type);
-  const chief = has('chief'), bordure = has('bordure');
-  return chief && bordure ? 'chief-bordure' : chief ? 'chief' : bordure ? 'bordure' : 'none';
+  const find = (type: OrdinaryType) => d.groups.find((g) => g !== except && g.role === 'peripheral' && g.item.k === 'ordinary' && g.item.type === type);
+  const chief = find('chief') !== undefined, bordure = find('bordure');
+  if (!bordure) return chief ? 'chief' : 'none';
+  const charged = bordure.charged.length > 0;
+  return chief ? (charged ? 'chief-charged-bordure' : 'chief-bordure') : charged ? 'charged-bordure' : 'bordure';
+}
+
+/** The design's peripherals other than a chief or bordure, but `except` (the host a charge group sits on is not in its way): what its charges keep clear of. */
+function keepOutOf(d: Design, except: Group | null = null): KeepOut {
+  return d.groups.flatMap((g) => (g !== except && g.role === 'peripheral' && g.item.k === 'ordinary' && g.item.type !== 'chief' && g.item.type !== 'bordure' ? [specOf(g)] : []));
 }
 
 /** The central ordinary of the primary group, if any: what a secondary group is set between. */
-export function primaryOrdinary(d: Design): OrdinaryType | null {
+export function primaryOrdinary(d: Design): OrdinarySpec | null {
   const g = d.groups.find((x) => x.role === 'primary');
-  return g && g.item.k === 'ordinary' && ORDINARY_KIND[g.item.type] === 'central' ? g.item.type : null;
+  return g && g.item.k === 'ordinary' && ORDINARY_KIND[g.item.type] === 'central' ? specOf(g) : null;
 }
 
 /** The position of the design's one secondary group set by position, if it has one: the room the primary charges leave for it. */
@@ -249,22 +268,36 @@ export function contextOf(d: Design, group: Group, host: Group | null): LayoutCo
       return { k: 'on-charge', host: { charge: host.item.charge, posture: host.item.posture, count: host.count, layout: { arrangement: host.arrangement, position: host.position }, context } };
     }
     // The bordure runs round the whole edge, under no chief of its own: what lies beside it doesn't change where its charges go.
-    return { k: 'on', ordinary: host.item.type, peripheral: host.item.type === 'bordure' ? 'none' : peripheralOf(d, host) };
+    return { k: 'on', ordinary: specOf(host), peripheral: host.item.type === 'bordure' ? 'none' : peripheralOf(d, host), keepOut: keepOutOf(d, host) };
   }
   if (group.role === 'overall') return d.groups.some((g) => g.role === 'primary') ? { k: 'overall', peripheral: peripheralOf(d) } : null;
-  if (group.role === 'primary') return { ...fieldContext(peripheralOf(d)), yields: positionedSecondary(d) ?? (aroundSecondary(d) ? 'around' : 'none'), share: shareOf(d, group) };
+  if (group.role === 'primary') return { ...fieldContext(peripheralOf(d)), keepOut: keepOutOf(d), yields: positionedSecondary(d) ?? (aroundSecondary(d) ? 'around' : 'none'), share: shareOf(d, group) };
   if (group.role === 'secondary' && group.relation === 'position') {
     return isSecondaryPosition(group.position) && d.groups.some((g) => g.role === 'primary')
-      ? { k: 'position', position: group.position, ordinary: primaryOrdinary(d), peripheral: peripheralOf(d) }
+      ? { k: 'position', position: group.position, ordinary: primaryOrdinary(d), peripheral: peripheralOf(d), keepOut: keepOutOf(d) }
       : null;
   }
   if (group.role === 'secondary' && group.relation === 'between') {
     const ordinary = primaryOrdinary(d);
-    if (ordinary) return { k: 'between', ordinary, peripheral: peripheralOf(d) };
+    if (ordinary) return { k: 'between', ordinary, peripheral: peripheralOf(d), keepOut: keepOutOf(d) };
     const primary = primaryCharges(d);
-    return primary && { k: 'around', peripheral: peripheralOf(d), primary: { count: primary.count, layout: { arrangement: primary.arrangement, position: primary.position } } };
+    return primary && { k: 'around', peripheral: peripheralOf(d), keepOut: keepOutOf(d), primary: { count: primary.count, layout: { arrangement: primary.arrangement, position: primary.position } } };
   }
   return null;
+}
+
+/**
+ * The corner a lone charge set in chief or in base beside a bend stands in: the one the bend leaves free (RULES-C §F.3) — sinister chief and
+ * dexter base beside a bend, dexter chief and sinister base beside a bend sinister — and is blazoned in ("and in sinister chief a rose"); null
+ * elsewhere. The design keeps its position in chief or in base. Two or more beside a bend stand along the top or the bottom as elsewhere.
+ */
+export function cornerBesideBend(ctx: LayoutContext, layout: Layout): QuarterPosition | null {
+  if (ctx.k !== 'position' || ctx.ordinary === null || layout.arrangement.k !== 'single' || ctx.position === 'canton') return null;
+  switch (familyOfTreated(ctx.ordinary)) {
+    case 'bend': return ctx.position === 'chief' ? 'sinister-chief' : 'dexter-base';
+    case 'bend-sinister': return ctx.position === 'chief' ? 'dexter-chief' : 'sinister-base';
+    default: return null;
+  }
 }
 
 export function layoutContext(d: Design, path: GroupPath): LayoutContext {
@@ -272,11 +305,20 @@ export function layoutContext(d: Design, path: GroupPath): LayoutContext {
   return contextOf(d, group, hostOf(d, path)) ?? notSupported({ category: 'placement', detail: `${group.role}-${group.item.k}` });
 }
 
+/** What Table 7's secondary rows are kept by: an ordinary's type, and a chevron inverted, whose charges stand the other way up. */
+export type BetweenHost = OrdinaryType | 'chevron-inverted';
+
+/** The row of Table 7 charges set between an ordinary follow: its own, or its ordinary's for a group of diminutives (two bars as a fess). */
+export const betweenHost = (spec: OrdinarySpec): BetweenHost => {
+  const family = familyOfTreated(spec);
+  return family === 'chevron' && spec.mods.includes('inverted') ? 'chevron-inverted' : family;
+};
+
 /**
  * Table 7's secondary rows, the one place they are written: for each ordinary and count of charges set between it,
  * how many go on each side (`split`, null where the drawing places them by its own rule) and how that is said.
  */
-export const BETWEEN: Partial<Record<OrdinaryType, Record<number, { split: [number, number] | null; words: string }>>> = {
+export const BETWEEN: Partial<Record<BetweenHost, Record<number, { split: [number, number] | null; words: string }>>> = {
   fess: {
     2: { split: [1, 1], words: 'one above and one below' }, 3: { split: [2, 1], words: 'two above and one below' },
     4: { split: [2, 2], words: 'two above and two below' }, 6: { split: [3, 3], words: 'three above and three below' },
@@ -293,13 +335,20 @@ export const BETWEEN: Partial<Record<OrdinaryType, Record<number, { split: [numb
   chevron: {
     2: { split: [1, 1], words: 'one above and one below' }, 3: { split: [2, 1], words: 'two above and one below' }, 6: { split: [3, 3], words: 'three above and three below' },
   },
+  // the other way up: one inside the V and two below it
+  'chevron-inverted': {
+    2: { split: [1, 1], words: 'one above and one below' }, 3: { split: [1, 2], words: 'one above and two below' }, 6: { split: [3, 3], words: 'three above and three below' },
+  },
   cross: { 4: { split: null, words: 'one in each quarter' } },
   saltire: { 4: { split: null, words: 'one above, one below and one on each side' } },
   pile: { 2: { split: null, words: 'one on each side' } },
+  // one in each of the three sections the arms leave
+  pall: { 3: { split: null, words: 'one in each section' } },
+  'pall-inverted': { 3: { split: null, words: 'one in each section' } },
 };
 
 /** How charges set between `ordinary` are spread out, or null for a count it has no spread for. */
-export function betweenWords(ordinary: OrdinaryType, count: number): string | null {
+export function betweenWords(ordinary: BetweenHost, count: number): string | null {
   return BETWEEN[ordinary]?.[count]?.words ?? null;
 }
 
@@ -367,18 +416,21 @@ export function overallLayouts(count: number, long: boolean): Layout[] {
   return count === 2 && long ? [{ arrangement: { k: 'crossed' }, position: null }] : [];
 }
 
-/** The counts that have a layout around (`between`) or on (`on`) an ordinary: Table 7's secondary and tertiary rows. */
-export function hostCounts(kind: 'between' | 'on', ordinary: OrdinaryType): readonly number[] {
-  if (kind === 'between') return Object.keys(BETWEEN[ordinary] ?? {}).map(Number);
-  switch (ordinary) {
+/** The counts that have a layout around (`between`) or on (`on`) an ordinary: Table 7's secondary and tertiary rows, by its type. */
+export function hostCounts(kind: 'between' | 'on', spec: OrdinarySpec): readonly number[] {
+  const { type } = spec;
+  if (kind === 'between') return Object.keys(BETWEEN[betweenHost(spec)] ?? {}).map(Number);
+  switch (type) {
     case 'fess': case 'pale': case 'bend': case 'bend-sinister': case 'chevron': case 'chief': case 'bordure': return Array.from({ length: 12 }, (_, i) => i + 1);
     case 'cross': case 'saltire': return [1, 4, 5];
     case 'pile': return [1, 2, 3];
+    // one on each arm, or one at the middle
+    case 'pall': case 'pall-inverted': return [1, 3];
     // Not drawn: no host layouts.
-    case 'base': case 'canton': case 'quarter': case 'orle': case 'tressure': case 'flaunches': case 'gore': case 'pall': case 'pall-inverted': case 'point':
+    case 'base': case 'canton': case 'quarter': case 'orle': case 'tressure': case 'flaunches': case 'gore': case 'point':
     case 'fret': case 'label': case 'gyron': case 'mount': case 'trimount': case 'bar': case 'barrulet': case 'pallet': case 'bendlet': case 'bendlet-sinister':
-    case 'chevronel': case 'saltorel': case 'baton': return [];
-    default: return ordinary satisfies never;
+    case 'chevronel': case 'saltorel': case 'baton': case 'point-dexter': case 'point-sinister': return [];
+    default: return type satisfies never;
   }
 }
 
@@ -423,7 +475,9 @@ function tableDefaultRuleFor(d: Design, group: Group, ctx: LayoutContext, own: n
   if (count === 2) {
     switch (division) {
       case 'per-pale': return { layout: line('fess'), rule: '2-two-part' };
-      case 'per-fess': case 'per-chevron': return { layout: line('pale'), rule: '2-two-part' };
+      case 'per-fess': case 'per-chevron': case 'per-chevron-inverted': return { layout: line('pale'), rule: '2-two-part' };
+      // two on a per pall stand in fess (GoT Table 7)
+      case 'per-pall': case 'per-pall-inverted': return { layout: line('fess'), rule: '2-two-part' };
       case 'per-bend': return { layout: line('bend-sinister'), rule: '2-two-part' };
       case 'per-bend-sinister': return { layout: line('bend'), rule: '2-two-part' };
       case 'quarterly': case 'per-saltire': {
@@ -437,7 +491,15 @@ function tableDefaultRuleFor(d: Design, group: Group, ctx: LayoutContext, own: n
       default: return null;
     }
   }
-  if (count === 3) return { layout: rows([2, 1]), rule: '3' };
+  // three on a field divided in three stand one in each part (GoT Table 7: per pall); on per chevron inverted one and two, one in the V
+  if (count === 3) {
+    switch (division) {
+      case 'per-pall': case 'per-chevron-inverted': return { layout: rows([1, 2]), rule: '3' };
+      case 'tierced-per-pale': return { layout: line('fess'), rule: '3' };
+      case 'tierced-per-fess': return { layout: line('pale'), rule: '3' };
+      default: return { layout: rows([2, 1]), rule: '3' };
+    }
+  }
   if (count === 4) {
     if (division === 'quarterly') return { layout: rows([2, 2]), rule: '4' };
     return division === 'per-saltire' ? { layout: pattern('cross'), rule: '4' } : null;

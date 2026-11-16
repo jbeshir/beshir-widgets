@@ -3,7 +3,7 @@
 // two tinctures it is made of. One of the options of "More colours and patterns…".
 
 import {
-  TINCTURES, TINCTURE_FILL, VARIATIONS, VARIATION_LABEL, VARIATION_PIECES, asVariation, groupAt, groupVariationChoices, groupVariationTinctureChoices, isCountedVariation, setGroupVariation,
+  PLAIN_LINES, TINCTURES, TINCTURE_FILL, VARIATIONS, VARIATION_LABEL, VARIATION_PIECES, asVariation, groupAt, groupVariationChoices, groupVariationTinctureChoices, isCountedVariation, setGroupVariation,
   setGroupVariationPieces, setGroupVariationTincture, variationRegions,
   type Choice, type Design, type GroupPath, type Tincture, type Variation, type VariationPaint,
 } from '../../lib/heraldry';
@@ -22,7 +22,7 @@ const CHIP_BOX = { x0: 0, y0: 0, x1: 100, y1: 120 };
 
 /** A small picture of a pattern in gold and azure. */
 function PatternChip({ variation }: { variation: Variation }) {
-  const [, second] = variationRegions(variation, null, CHIP_BOX);
+  const [, second] = variationRegions(variation, null, PLAIN_LINES, CHIP_BOX);
   return (
     <svg viewBox="0 0 100 120" width="26" height="31" aria-hidden="true" focusable="false">
       <rect width="100" height="120" fill={TINCTURE_FILL.or} />

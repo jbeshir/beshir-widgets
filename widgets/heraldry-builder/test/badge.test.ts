@@ -185,7 +185,8 @@ describe('the builder offers a badge', () => {
     const kept = badgeDesign(shaped(lion), setBadge(lion));
     expect(kept).toMatchObject({ kind: 'badge', previous: shaped(lion), note: 'Made a badge: a badge has no background.' });
     const banded = setCharge(setOrdinary(DEFAULT_DESIGN, 'bend'), 'picture', 'lion');
-    expect(badgeDesign(shaped(banded), setBadge(banded))?.note).toContain('everything else');
+    const replaced = badgeDesign(shaped(banded), setBadge(banded));
+    expect(replaced?.kind === 'badge' && replaced.note).toContain('everything else');
   });
 
   it('makes one charge of a group the badge cannot hold, and a tincture of counterchanged', () => {

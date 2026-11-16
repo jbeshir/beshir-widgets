@@ -6,6 +6,8 @@
 import { TINCTURE_CLASS, TINCTURE_WORD, isTincture, type Tincture } from './tinctures';
 import { capitalise, numberWord } from './words';
 import { CHARGES } from './charges';
+import { LINE_WORD, isStraightLine, type ComplexLine } from './lines';
+import { adjacentParts } from './divisions';
 import { defaultLayoutOf } from './arrangement';
 import { fieldTinctures, replaceGroup, walkGroups, type Design, type Group, type WalkedGroup } from './design';
 import { drawnBox } from './geometry';
@@ -101,8 +103,13 @@ export function readability(d: Design): Readability {
   const divided = d.kind === 'arms' && d.field.k === 'divided';
   // Stripes, checks, a fur, brick or a scatter: not split, but not one plain colour either.
   const patterned = d.kind === 'arms' && d.field.k !== 'tincture';
-  const touching = divided && parts.length === 2 && tinctureSurface(parts[0]).cls === tinctureSurface(parts[1]).cls;
+  // parts of one class lying against each other: a field in two, or any two neighbouring parts of a field in three
+  const alike = d.kind === 'arms' && d.field.k === 'divided' && parts.length === d.field.parts.length
+    ? adjacentParts(d.field.division).find(([i, j]) => tinctureSurface(parts[i]).cls === tinctureSurface(parts[j]).cls) ?? null : null;
+  const touching = alike !== null;
+  const [near, far] = alike ? [parts[alike[0]], parts[alike[1]]] : [parts[0], parts[1]];
   const crossing = straddle(d, entries);
+  const complexLine = d.kind === 'arms' && d.field.k === 'divided' ? [d.field.lines.a, d.field.lines.b].find((l): l is ComplexLine => !isStraightLine(l)) ?? null : null;
 
   // The largest charge group sets the count score; each further group adds a point.
   const biggest = charges.reduce<WalkedGroup | null>((best, e) => (best === null || e.group.count > best.group.count ? e : best), null);
@@ -131,7 +138,10 @@ export function readability(d: Design): Readability {
     },
     {
       factor: 'touching', label: 'Neighbouring colours look alike', points: touching ? 2 : 0,
-      advice: touching ? `${capitalise(TINCTURE_WORD[parts[0]])} on ${TINCTURE_WORD[parts[1]]} is hard to see — try a ${TINCTURE_CLASS[parts[0]] === 'metal' ? 'colour' : 'metal'}` : null,
+      advice: !touching ? null
+        // SENA App H: low-contrast tinctures across a complex line register only while the line stays readily identifiable.
+        : complexLine ? `${capitalise(TINCTURE_WORD[near])} and ${TINCTURE_WORD[far]} across a ${LINE_WORD[complexLine]} line can be hard to see — try a straight line, or a ${TINCTURE_CLASS[near] === 'metal' ? 'colour' : 'metal'}`
+        : `${capitalise(TINCTURE_WORD[near])} on ${TINCTURE_WORD[far]} is hard to see — try a ${TINCTURE_CLASS[near] === 'metal' ? 'colour' : 'metal'}`,
     },
     {
       factor: 'straddle', label: 'Half of it lies on a look-alike colour', points: crossing ? 1 : 0,

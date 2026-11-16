@@ -17,7 +17,7 @@ const lion = (paint: unknown, extra: object = {}) => group(charge('lion'), paint
 const messages = (d: Design) => [...structuralIssues(d), ...tinctureIssues(d)].map((i) => i.message);
 const gaps = (d: unknown) => unsupportedIssues(nd(d)).map((i) => `${i.gap.category}:${i.gap.detail}`);
 const between = (a: unknown, b: unknown) => differences(nd(a), nd(b)).map((d) => `${d.attr}:${d.kind}:${d.rule}`);
-const surface = (p: unknown) => surfaceOf(nd(arms(p, lion('gules'))).field, null);
+const surface = (p: unknown) => surfaceOf(nd(arms(p, lion('gules'))).field!, null);
 
 describe('what is supported', () => {
   it('draws the three treatments on the field, on a part of it, and on bands and pictures', () => {
@@ -144,7 +144,7 @@ describe('the drawing', () => {
   it('paints the field and a band with the treatment pattern, and a divided field with one per part', () => {
     const [layer] = renderLayers(nd(arms(treated('masoned', 'argent', 'sable'), lion('gules'))), 'heater');
     expect(layer.k === 'field' && fillCode(layer.fill)).toMatch(/^pattern:masoned-/);
-    const regions = fieldRegions(nd(arms({ k: 'divided', division: 'per-pale', parts: ['azure', treated('scaly', 'argent', 'sable')] }, lion('gules'))).field, 'heater');
+    const regions = fieldRegions(nd(arms({ k: 'divided', division: 'per-pale', parts: ['azure', treated('scaly', 'argent', 'sable')] }, lion('gules'))).field!, 'heater');
     expect(regions.map((r) => r.paint.k)).toEqual(['tincture', 'treated']);
   });
 

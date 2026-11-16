@@ -32,7 +32,7 @@ as a to-do list.
 
 Regenerate it with `npm run sca:ignore` after changing the widget or the SCA tooling. It
 reclassifies every current record through `test/sca/classify.ts`, the same code the test uses, and
-rewrites the whole file. The run fails, writing nothing, if a matched design the widget would
+rewrites the whole file. It is the authoritative full sweep: unlike `npm test`, which samples the expensive per-record checks (the builder replay, the gap tagger on ignored records; `test/sca/sample.ts`), it checks every record in full. The run fails, writing nothing, if a matched design the widget would
 register can't be blazoned, drawn or built: that is a widget bug, and is never ignored.
 
 The format is valid JSON, laid out for readable diffs:
@@ -54,8 +54,11 @@ The format is valid JSON, laid out for readable diffs:
   highest by `singleGap`. `singleGap` counts the records whose only gap category is that one, i.e.
   the records that closing it alone would unlock. Groups are in that order.
 - Each record is on its own line with its sorted gap tags. Records are in regid order.
-- The armorial test fails in three cases: a listed record now passes (regenerate the list), a listed
-  record no longer has its group's gap, or an unlisted record fails.
+- The armorial test fails when a listed record now passes (regenerate the list), a listed record no
+  longer has its group's gap, a listed record fails a widget check (a bug: it is never a gap), an unlisted
+  record fails, or an entry is malformed (an unknown gap category, a group not among its record's tags, a
+  record listed twice). "Still has its gap" re-runs the gap tagger on a seeded sample of the listed records
+  (`test/sca/sample.ts`; the classification is then `gap-unchecked`); `npm run sca:ignore` and `SCA_FULL=1` check every one.
 
 ## How a record is matched
 
@@ -68,7 +71,6 @@ proposes, the comparison accepts. The outcome is one of:
 
 | status | meaning |
 |---|---|
-| `fieldless` | "(Fieldless) …": the widget always has a field |
 | `vocabulary` | a word the widget does not blazon |
 | `unparsed` | every word is known, but not in a shape the grammar proposes (or the proposal is malformed) |
 | `unsupported` | proposed, but the widget does not draw part of it; the record is filed under the widget's own gaps (`multiple-groups:co-primary`, `posture:couchant`, `placement:between-cross-2`, …) |
@@ -80,21 +82,78 @@ rule of tincture rejects it as well, being a registration from before the rule o
 `widget-structure-rule` (a structure rule SENA does not have), `placement` (charges that cannot be drawn
 legibly where they sit, e.g. six on a chevron), `arrangement:forced-into-one-part` (charges GoT Table 7 forces
 into one part of a divided field where the library has no such layout; the library itself reports this gap as an
-`unsupported` issue). A band with a chief or bordure is
-reachable in the Design tab (the extra layer card) and passes like any other matched design. A matched design that
+`unsupported` issue). A band with a chief or bordure, or with any number of corner and edge shapes (a base, point pointed, canton, quarter, gyron, and the
+sinister corner forms), is reachable in the Design tab (the extra layer cards, the band step's More shapes row) and passes like any other matched
+design; "a canton sinister" and "a sinister canton" are read alike (`corner-shapes`, for every form that takes "sinister": `MOD_HOSTS.sinister`, the gore and the baton too), and the tagger asks the library, on a stand-in design, whether
+the ordinaries it read stand together (`drawnTogether`), so a second of one type stays `multiple-groups:peripherals`. The orle, the double
+and triple tressure, flaunches and the gore (and gore sinister) are read too: "a double tressure" is the tressure drawn twice, flaunches
+take no article, and "within" joins only an orle or tressure (the widget's words: "a heart within an orle gules", "between flaunches");
+`peripheral-forms` reads "a tressure" as an orle (a single tressure is one, Prec Gwynaeth 04/2004), "two flaunches" and "a pair of
+flaunches" as flaunches and "a dexter point" as "a point dexter", and the connectors rule
+puts " within " before an orle or tressure and " between " before flaunches (O&A counts in `PERIPHERAL_JOINER`). A dexter or sinister
+point matches and is filed as the widget's refusal (`widget-structure-rule`, RULES-C §C.3, L21), not as a gap. A matched design that
 the widget registers but cannot blazon, draw or build is a widget bug (`fails`), never ignored.
+
+The pall, pall inverted (read as one phrase), fret, label, mount and trimount are read too. `label-forms` drops "of three points" (the default) and
+"in chief" before a label, "throughout" after a pall, fret or label is dropped as it is after a cross, and a label, mount or trimount takes the joiner
+the O&A uses most (`PERIPHERAL_JOINER`). "a label of five points" is `ordinary:label-points`, a label overall `placement:overall-label`, a pall cotised
+is read and filed as the widget's refusal (`widget-structure-rule`, L20), a fret between charges `placement:between-fret-<n>`.
+
+Gyronny, per chevron inverted and per chevron throughout are drawn divisions (`DIVISION_WORDS` follows `DRAWN_DIVISIONS`; the tagger's `gyronny` entry, `DRAWN_DIVISION_FORMS` for "inverted", "throughout" and "arrondi" after the division): "gyronny [arrondi|arrondy] [of six|twelve]" is read with its count (`readPaint`), "gyronny of eight" is a near-miss like any stated default, other counts are `division:gyronny-pieces-<n>`, and a band or picture so divided `division:<d>-on-charge`.
+
+Per pall, per pall inverted and tierced in pale/fess (C13) are read with three tinctures: the field runs to its own end, not the first comma (`proposeInputs` reads the paint over the whole text and wants a comma or the end after it), "A, B and C" (`readPaint`). The normaliser's `three-part-fields` rule writes "tierced per pale|fess" as "tierced in …", "tierced per pall" and "gyronny of three" as "per pall" (A5G1b), drops the serial comma and supplies a missing first comma; `fieldComma` finds the comma that closes such a field for the connector rules. The tagger joins "tierced per|in pale|fess" (its `tierced` entry) and "tierced per pall"; a bare "tierced" keeps `division:tierced`; a drawn-on-the-field-only division on a band or picture is `division:<d>-on-charge`.
+
+Diminutives are read counted: a number word and a plural (`ORDINARY_PLURAL`: "three bars", "two bendlets sinister", "four pallets") is one
+ordinary group of that count, any number of them (the widget files five bars as `ordinary:multiple` and several saltorels as
+`ordinary:saltorel-multiple`); a central band read after "between" and a group before it ("a fleur-de-lys between two pallets") is a
+secondary group, `multiple-groups:secondary-ordinary`. The normaliser rule `diminutives` folds the other spellings (`ORDINARY_SPELLINGS`:
+scarpe → bendlet sinister, palet → pallet, chevronelle → chevronel) and barrulets into bars (no difference, RULES-C §G.2), and — SCA armory
+using no single diminutive as the main band (RULES-C §C.2) — "a bar", "a pallet", "a bendlet (sinister)" and "a chevronel" into their
+ordinary (not after "in chief/base/canton", nor "a bar gemel") and "a saltorel" into "a saltire couped" (§D.2), as the widget canonicalises
+them. The tagger counts them the same way (`ORDINARY_COUNTS`), so a drawn group is never tagged `ordinary:multiple`.
+
+One charge beside a bend (C16; RULES-C §F.3, App K) stands in the corner the bend leaves free, and the widget writes the corner ("Argent, a bend
+sable and in sinister chief a rose gules"). The College writes it both ways — "in sinister chief" (about 40 records) and plain "in chief" (about
+45) beside a bend, "in dexter chief" or "in chief" beside a bend sinister — so the normaliser's `corner-beside-bend` rule reads, after a bend,
+bendlets or a baton, "in sinister chief a/an" as "in chief a/an" and "in dexter base a/an" as "in base a/an" (after a bend sinister, bendlets sinister or a
+baton sinister, "in dexter chief" and "in sinister base"); two or more charges are not read so (they stand along the top). The tagger files such a charge
+as set in chief or in base beside the bend (`cornerPosition` in `gaps.ts`, derived from the library's `cornerBesideBend`).
+
+### Phase-C additions at a glance
+
+What phase C added to the grammar, the normaliser and the tagger, with where each convention comes from (details in the paragraphs
+above and below):
+
+| addition | where | source |
+|---|---|---|
+| a line after a division, a counted variation or an ordinary's name, "on the <edge> edge", "embattled counter-embattled", "embattled grady" | `paint-grammar.ts` (`readDivisionLines`, `readOrdinaryLines`, `readVariation`) | RULES-C §0, §A.1 (`lineAllowed`, `bareLines`) |
+| "arrondi" is read only on the gyronny: "quarterly arrondi", "per saltire arrondi", "a cross arrondi" stay their gaps (`readHostLine`) | `paint-grammar.ts` | PLAN-C §6 (per saltire / quarterly arrondi deferred) |
+| `line-synonyms`: undy, crenellated, ployee, beviled/bevelled, rompú; a division, or a band or shape that takes indented but not dancetty (`lineAllowed`), dancetty is indented | `normalise.ts` | RULES §A.3, RULES-C §A.1 |
+| `ordinary-treatments`: humetty = couped, reversed = inverted, inverted before the line and couped after it, a bendlet enhanced = a bend enhanced, throughout after a cross says nothing | `normalise.ts`, `readOrdinaryForm` | RULES-C §D.2, §D.6, §G.2; PLAN-C §4 (corpus order counts) |
+| `ordinary-outlines`: cotissed/cottised, double/triple cotised, a pale's pair "endorsed", "between two cotises", no comma before the outline | `normalise.ts`, `readOutline` | RULES-C §D.5, §G.2 |
+| `corner-shapes`, `peripheral-forms`, `label-forms`: a canton (gore, baton) sinister = a sinister canton (gore, baton), a tressure = an orle, two flaunches / a pair of flaunches = flaunches, a dexter point = a point dexter, "of three points" dropped; each peripheral's joiner | `normalise.ts` | RULES-C §C.3; Prec Gwynaeth 04/2004; O&A counts (`PERIPHERAL_JOINER`) |
+| `diminutives`: scarpe, palet, chevronelle, barrulets = bars, a single diminutive = its ordinary, a saltorel = a saltire couped; counted plurals | `normalise.ts`, `readGroup` (counted plurals) | RULES-C §C.2, §D.2, §G.2 |
+| per chevron inverted / throughout, gyronny [arrondi] of 6, 8 or 12 | `paint-grammar.ts`, tagger `DRAWN_DIVISION_FORMS` | RULES-C §E.1–§E.2 |
+| `three-part-fields`: tierced per → in, tierced per pall / gyronny of three = per pall, serial comma dropped, missing first comma supplied | `normalise.ts`, `readPaint` | SENA A5G1b; corpus counts (C13) |
+| `corner-beside-bend`: one charge "in sinister chief" beside a bend = "in chief" | `normalise.ts`, tagger `cornerPosition` | RULES-C §F.3, App K; corpus counts (C16) |
+| tagger: lines read on the host they follow (`drawnOn`), a line on each edge ("embattled on the upper edge and embattled grady on the lower edge"), treatments and outlines on the hosts the library draws them on (`MOD_HOSTS`, `COTISED_HOSTS`), counted diminutives (`ORDINARY_COUNTS`) | `gaps.ts` | the library's own tables; guarded by "the tagger never files a record under a construct the widget supports" |
 
 ### Normalisation
 
 `test/sca/normalise.ts` is applied to the SCA blazon and to the widget's alike. It only bridges spelling and
-punctuation (`final-full-stop`, `case`, `spelling`) and three conventions that the Glossary, Bruce and the LoARs
-treat as equivalent, which the widget's emitter has to pick one of (`equivalent-connectors`,
-`arrangement-placement`, `stated-default-postures`, `divided-groups`), and the names of a semy (`semy-names`: "crusilly argent",
+punctuation (`final-full-stop`, `case`, `spelling`) and five conventions that the Glossary, Bruce and the LoARs
+treat as equivalent, which the widget's emitter has to pick one of (`equivalent-connectors`, which also gives each corner or edge shape the joiner the O&A uses most before it — "and a base", ", a point pointed", "and a canton", ", a quarter", "and a gyron": counts in `PERIPHERAL_JOINER` —,
+`arrangement-placement`, `stated-default-postures`, `divided-groups`, and `corner-beside-bend`: one charge "in sinister chief" beside a bend is the widget's "in chief" there, above), the spellings of a line of partition (`line-synonyms`: "undy" is wavy, "crenellated" embattled, "ployee" ployé, "beviled" bevilled, "rompú" rompu; and the convention that a division has one line, so "per pale dancetty" is "per pale indented", RULES §A.3, as is every band or shape that takes indented but not dancetty, read from `lineAllowed`: a chief, bordure, base, canton, quarter, gyron, cross, saltire, pile, pall, orle, tressure, flaunches or gore dancetty is indented), the treatments of an ordinary (`ordinary-treatments`: "humetty" is couped and "chevron reversed" a chevron inverted, RULES-C §G.2; "inverted" stands before the line and "couped" after it, PLAN-C §4 from the corpus counts, so "a pile wavy inverted" (every band or shape that takes inverted, `MOD_HOSTS.inverted`: the pall and chevronels too) and "a fess couped embattled" are reordered; a bare "chevron inverted embattled" is its upper edge, which the widget names, PLAN-C §4 L2; "a bendlet enhanced" is a bend enhanced, RULES-C §D.6; "throughout" after a cross or saltire says nothing, RULES-C §D.2 — the matcher reads `[inverted] [line] [couped] [throughout|enhanced|abased]` after an ordinary's name, and the tagger reads one cross couped, humetty or voided with its article as the ordinary), the outline of a band (`ordinary-outlines`: "cotissed" and "cottised" are cotised, "double" and "triple cotised" doubly and triply cotised, a pale's single pair is "endorsed" in the widget's words, "between two cotises" is cotised, no comma stands before the outline, and "cotised couped" is "couped cotised" — the matcher reads `[T] ('fimbriated' [T] | ['doubly'|'triply'] ('cotised'|'endorsed') ['plain'|line] [T])` after an ordinary's form, a tincture stated once for a band and its cotises, or for its fimbriation and what follows, being the one the others share; the tagger leaves "cotised" and "fimbriated" untagged on the hosts the widget draws them on, "doubly/triply cotised" is joined to "cotised", and "endorsed" straight after an ordinary's name and tincture is its cotises, never the posture addorsed), and the names of a semy (`semy-names`: "crusilly argent",
 "bezanty" and "semy of roses argent" are one thing, the tincture left unsaid being the next one stated). A stated Table 7 arrangement is
 not dropped as text: the matcher also compares the SCA blazon with the widget's blazon of the same design with its defaults stated
 (`blazon(design, { stateDefaults: true })`), and with the tincture of every element stated, not once for a run of elements that
 share it ("a lion argent and a bordure argent mullety sable": `blazon(design, { stateTinctures: true })`). To see how many passing records depend on a rule, replace its
 `apply` with the identity locally and count the records that stop passing (never commit the change).
+
+The words the normaliser, matcher and tagger read for the library's constructs — division names and how a divided field starts, the
+bands written with a line after their name, a band's edge names, the forms that take "sinister" or "inverted", a bend's family, the drawn division
+forms, the number words and the cotise words — are built from the library's tables in `test/sca/words.ts` (and the library's `COUNTER_EMBATTLED_WORDS`, `SAME_ORDINARY`,
+`THROUGHOUT_ALREADY`, `MODS_BEFORE_LINE` and `MODS_AFTER_LINE`), never typed out again, so a construct the library gains is read everywhere.
 
 ## Refreshing the database
 

@@ -1,16 +1,24 @@
 import path from 'node:path';
 import { defineConfig } from 'vitest/config';
 import { cloudflareTest, readD1Migrations } from '@cloudflare/vitest-pool-workers';
-// Offline tests run in the workers runtime (workerd) via @cloudflare/vitest-pool-workers, against a
-// local Miniflare D1 — no real Cloudflare account or network is involved. The pure heraldry-library
-// tests share the same pool. The pool options are passed to the cloudflareTest() plugin
-// (vitest-pool-workers v0.16+). The committed migrations are read here and applied to DB by
-// test/apply-migrations.ts, so the tests run against exactly the schema production gets.
-//
-// The SCA armorial test is the exception: it reads the 21 MB Latin-1 O&A dump from disk, so it runs
-// in plain Node as its own project.
+// Three projects, so each kind of test runs in the cheapest runtime that is faithful to it:
+//  - workers: the two files that use the D1 binding (test/worker.test.ts, test/migrations.test.ts) run in the workers
+//    runtime (workerd) via @cloudflare/vitest-pool-workers, against a local Miniflare D1 — no real Cloudflare account or
+//    network is involved. They share one worker (singleWorker) and apply the committed migrations (read here, applied by
+//    test/apply-migrations.ts) so they run against exactly the schema production gets. The pool options are passed to the
+//    cloudflareTest() plugin (vitest-pool-workers v0.16+).
+//  - library: every other test/*.test.ts (the pure heraldry library, store seam, export) needs no Cloudflare global, so it
+//    runs in plain Node with the default pool: files in parallel across forks. Files in a fork share module state (isolate:
+//    false), so the geometry and layout caches and the imports are paid once per fork, not once per file; the tests hold no
+//    state between files (each builds its own designs).
+//  - sca: the SCA armorial test reads the 21 MB Latin-1 O&A dump from disk, so it runs in plain Node as its own project.
+//    It runs the cheap per-record checks on every record and the expensive ones (builder replay, gap tagger on ignored
+//    records) on a seeded, rotating sample (test/sca/sample.ts), so its time stays flat as records start passing. `npm run
+//    sca:ignore` (vitest.sca-ignore.config.ts) is the authoritative full sweep; the final gate runs it. SCA_FULL=1 makes
+//    this project do the full sweep too.
 const migrations = await readD1Migrations(path.join(import.meta.dirname, 'migrations'));
 const SCA_TEST = 'test/sca-armorial.test.ts';
+const WORKER_TESTS = ['test/worker.test.ts', 'test/migrations.test.ts'];
 
 export default defineConfig({
   test: {
@@ -41,9 +49,17 @@ export default defineConfig({
         ],
         test: {
           name: 'workers',
-          include: ['test/*.test.ts'],
-          exclude: [SCA_TEST],
+          include: WORKER_TESTS,
           setupFiles: ['test/apply-migrations.ts'],
+        },
+      },
+      {
+        test: {
+          name: 'library',
+          include: ['test/*.test.ts'],
+          exclude: [...WORKER_TESTS, SCA_TEST],
+          environment: 'node',
+          isolate: false,
         },
       },
       {

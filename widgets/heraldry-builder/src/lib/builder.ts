@@ -5,24 +5,22 @@
 // and the picture (pictures on the band, a top band, a border) are heraldry/layers.ts.
 
 import {
-  CHARGES, COLOURS, DEFAULT_FIELD_SHAPE, METALS, chargeOnBox, ORDINARY_KIND, ORDINARY_LABEL, PLACE_KEYS, PLACE_LABEL, PLAIN_LINES, TINCTURE_CLASS, TINCTURE_LABEL, addLayer, assembleParts, canonical,
-  asParty, asVariation, fieldParts, variationPaint, isTincture, firstAllowed, groundFailure, groundShares, groundTinctures, groupAt, groupTinctureChoices, groupTinctureIssues, groupTinctureOf, hostOf,
-  isAllowed, isMetal, isSupported, pathOfPlace, ordinaryGroup, partsOf, placeOfPath, refitLayers, removeLayer, replaceGroup, setLayerCharge, simpleParts, structuralIssues, tincturePaint,
+  CHARGES, COLOURS, DEFAULT_FIELD_SHAPE, METALS, chargeOnBox, ORDINARY_KIND, ORDINARY_LABEL, THIN, THIN_ORDINARIES, PLACE_LABEL, PLAIN_LINES, TINCTURE_CLASS, TINCTURE_LABEL, addLayer, assembleParts, canonical,
+  asParty, asVariation, fieldParts, isCountedVariation, keptLines, keptMods, keptOrdinaryLines, keptOutline, setBandPosition, setOrdinaryCount, setOutline, setEdgeSide, setLine, setToggle, variationPaint, isTincture, firstAllowed, groundFailure, groundShares, groundTinctures, groupAt, groupTinctureChoices, groupTinctureIssues, groupTinctureOf, hostOf,
+  isAllowed, isMetal, isSupported, pathOfPlace, placeKind, ordinaryGroup, partsOf, placeOfPath, refitLayers, removeLayer, replaceGroup, setLayerCharge, simpleParts, structuralIssues, tincturePaint,
   bodyTinctures, surfaceOf, tinctureIssues, tinctureSurface, validate, withTincture, withLayout, chargeItem, newCharge,
-  type ChargeId, type Companion, type Design, type Division, type Variation, type Group, type GroupPath, type GroupTincture, type Issue, type PicturesKey,
+  partCount, type FieldPart, type BandPosition, type ChargeId, type Companion, type Design, type Division, type EdgeSide, type Outline, type ShapeToggle, type Line, type Variation, type Group, type GroupPath, type GroupTincture, type Issue, type PicturesKey,
   type LayoutKey, type ModifierId, type OrdinaryType, type Paint, type Placement, type PlaceKey, type Posture, type Readability, type ShapedDesign, type Tincture,
 } from './heraldry';
 import { capitalise, numberWord } from './heraldry/words';
 
 export const DEFAULT_DESIGN: Design = { v: 2, kind: 'arms', field: tincturePaint('azure'), groups: [] };
 
-/** The builder's steps: the background, then the places (band or shape, picture, pictures on the band, top band, border). */
+/** The builder's steps: the background, then the places (band or shape, picture, pictures on the band, top band, border, corner or edge shapes). */
 export type StepKey = 'field' | PlaceKey;
 
-export const STEP_LABEL: Record<StepKey, string> = {
-  field: 'Background',
-  ...(Object.fromEntries(PLACE_KEYS.map((key) => [key, PLACE_LABEL[key].plain])) as Record<PlaceKey, string>),
-};
+/** What a step is called: "Background", or its place's everyday name (every corner or edge shape alike). */
+export const stepLabel = (step: StepKey): string => (step === 'field' ? 'Background' : PLACE_LABEL[placeKind(step)].plain);
 
 // ── Where things are ────────────────────────────────────────────────────────
 
@@ -35,11 +33,15 @@ function withField(d: Design, field: Paint): Design {
   return { v: 2, kind: 'arms', field, groups: d.groups };
 }
 
-/** A second tincture for a newly divided field: contrasting class, sharing none of the first's tinctures. */
-function partner(first: Paint): Paint {
-  if (first.k === 'tincture') return tincturePaint(!isMetal(first.t) ? 'or' : first.t === 'or' ? 'azure' : 'gules');
+/** A tincture to lie next to `first` in a newly divided field: contrasting class, sharing none of its tinctures nor those of the parts `besides`. */
+function partner(first: Paint, besides: readonly Paint[] = []): Paint {
+  const taken = besides.flatMap(bodyTinctures);
+  if (first.k === 'tincture') {
+    const preferred = !isMetal(first.t) ? 'or' : first.t === 'or' ? 'azure' : 'gules';
+    if (!taken.includes(preferred)) return tincturePaint(preferred);
+  }
   const { cls, bases } = surfaceOf(first, null);
-  return tincturePaint((cls === 'metal' ? COLOURS : METALS).find((t) => !bases.includes(t)) ?? 'gules');
+  return tincturePaint((cls === 'metal' ? COLOURS : METALS).find((t) => !bases.includes(t) && !taken.includes(t)) ?? 'gules');
 }
 
 /** The background as separate paints to build another from: a variation's two tinctures, or the parts of the field. */
@@ -79,11 +81,38 @@ export function setPlainField(d: Design): Design {
   return refitLayers(canonical(withField(d, backgroundParts(d)[0])));
 }
 
+/**
+ * The background divided this way, its tinctures kept where they still make a legal field: a second (and a third) part kept when it shares
+ * no tincture with the parts before it, else a partner that contrasts with the part before it (so the middle of a tierced field contrasts
+ * with both outer parts, and the first of a per pall with the other two: SENA A3B3b).
+ */
 export function setDivision(arms: Design, division: Division): Design {
   const d = arms.kind === 'badge' ? armsOf(arms) : arms;
-  const [first, kept] = backgroundParts(d);
-  const second = kept && !bodyTinctures(kept).some((t) => bodyTinctures(first).includes(t)) ? kept : partner(first);
-  return refitLayers(canonical(withField(d, { k: 'divided', division, lines: { ...PLAIN_LINES }, pieces: null, parts: [first, second] })));
+  const [first, kept, keptThird] = backgroundParts(d);
+  const apart = (p: Paint, others: readonly Paint[]) => !bodyTinctures(p).some((t) => others.flatMap(bodyTinctures).includes(t));
+  const second = kept && apart(kept, [first]) ? kept : partner(first);
+  const was = d.kind === 'arms' && (d.field.k === 'divided' || d.field.k === 'variation') ? d.field : null;
+  const lines = was ? keptLines(was.lines, { k: 'division', division }) : { ...PLAIN_LINES };
+  const divided = (parts: Paint[]) => refitLayers(canonical(withField(d, { k: 'divided', division, lines, pieces: null, parts })));
+  if (partCount(division) === 2) return divided([first, second]);
+  const kept3 = keptThird && apart(keptThird, [first, second]) ? divided([first, second, keptThird]) : null;
+  return kept3 && !structuralIssues(kept3).some((i) => i.at.k === 'field') ? kept3 : divided([first, second, partner(second, [first])]);
+}
+
+/** The gyronny background cut into this many wedges; unchanged when the background is not a gyronny. */
+export function setDivisionPieces(d: Design, pieces: number): Design {
+  if (d.kind !== 'arms' || d.field.k !== 'divided' || d.field.division !== 'gyronny') return d;
+  return refitLayers(canonical(withField(d, { ...d.field, pieces })));
+}
+
+/** The background's division or stripes drawn with this line (on the side already chosen, for a quartered field). */
+export function setFieldLine(d: Design, line: Line): Design {
+  return refitLayers(setLine(d, { k: 'field' }, line));
+}
+
+/** The quartered background's line drawn on both of its lines, or on the up-and-down or the across one only. */
+export function setFieldEdgeSide(d: Design, side: EdgeSide): Design {
+  return refitLayers(setEdgeSide(d, { k: 'field' }, side));
 }
 
 /** The tincture that stands for a paint in a variation: its own, or the first of the ones it is made of. */
@@ -99,13 +128,15 @@ export function setVariation(d: Design, variation: Variation): Design {
   if (d.kind !== 'arms') return d;
   const [first, kept] = backgroundParts(d);
   const [a, b] = contrastingPair(tinctureOf(first), kept ? tinctureOf(kept) : null);
-  return refitLayers(canonical(withField(d, variationPaint(variation, a, b, d.field.k === 'variation' ? d.field.pieces : null))));
+  const was = d.field.k === 'variation' ? d.field : null;
+  const varied = variationPaint(variation, a, b, was ? was.pieces : null);
+  return refitLayers(canonical(withField(d, was && isCountedVariation(was.variation) ? { ...varied, lines: keptLines(was.lines, { k: 'variation', variation }) } : varied)));
 }
 
 /** The stripes of the varied background cut into this many; unchanged when the background is not a variation. */
 export function setVariationPieces(d: Design, pieces: number): Design {
   const varied = d.kind === 'arms' ? asVariation(d.field) : null;
-  return varied ? refitLayers(canonical(withField(d, variationPaint(varied.variation, varied.parts[0].t, varied.parts[1].t, pieces)))) : d;
+  return varied ? refitLayers(canonical(withField(d, { ...variationPaint(varied.variation, varied.parts[0].t, varied.parts[1].t, pieces), lines: varied.lines }))) : d;
 }
 
 /** One tincture of the varied background; the other changes too only when it would no longer be a metal with a colour. */
@@ -113,10 +144,10 @@ export function setVariationTincture(d: Design, part: 0 | 1, t: Tincture): Desig
   const varied = d.kind === 'arms' ? asVariation(d.field) : null;
   if (!varied) return d;
   const [mine, theirs] = contrastingPair(t, varied.parts[part === 0 ? 1 : 0].t);
-  return canonical(withField(d, variationPaint(varied.variation, part === 0 ? mine : theirs, part === 0 ? theirs : mine, varied.pieces)));
+  return canonical(withField(d, { ...variationPaint(varied.variation, part === 0 ? mine : theirs, part === 0 ? theirs : mine, varied.pieces), lines: varied.lines }));
 }
 
-export function setFieldTincture(d: Design, part: 0 | 1, t: Tincture): Design {
+export function setFieldTincture(d: Design, part: FieldPart, t: Tincture): Design {
   if (d.kind !== 'arms') return d;
   const f = d.field;
   if (f.k !== 'divided') return canonical(withField(d, tincturePaint(t)));
@@ -149,15 +180,60 @@ function rebuilt(d: Design, ordinary: Group | null): Design {
   return first!;
 }
 
-export function setOrdinary(d: Design, type: OrdinaryType | null): Design {
-  if (!type) return rebuilt(d, null);
+export function setOrdinary(d: Design, picked: OrdinaryType | null): Design {
+  if (!picked) return rebuilt(d, null);
   const previous = simpleParts(d).ordinary?.group.paint;
   const kept = previous && groupTinctureOf(previous);
-  const placed = rebuilt(d, ordinaryGroup(type, kept ?? 'or'));
+  const was = simpleParts(d).ordinary?.group.item;
+  // thin bands stay thin, as many of them, where the new band has a thin form
+  const thin = was?.k === 'ordinary' && THIN_ORDINARIES.includes(was.type) ? THIN[picked] : undefined;
+  const type = thin ?? picked;
+  const mods = was?.k === 'ordinary' ? keptMods(was.mods, type) : [];
+  const lines = was?.k === 'ordinary' ? keptOrdinaryLines(was.lines, { type, mods }) : PLAIN_LINES;
+  const rebuiltDesign = rebuilt(d, ordinaryGroup(type, kept ?? 'or', lines, mods));
+  // Its outline goes with it where the new band or shape may have one.
+  const placed = was?.k === 'ordinary' ? refitLayers(keptOutline(rebuiltDesign, ordinaryPath(rebuiltDesign)!, was)) : rebuiltDesign;
   const path = ordinaryPath(placed)!;
   const choices = groupTinctureChoices(placed, path);
   const tincture = kept && isAllowed(choices, kept) ? kept : firstAllowed(choices, kept ?? 'or');
-  return tincture === kept ? placed : setGroupTincture(placed, path, tincture);
+  const painted = tincture === kept ? placed : setGroupTincture(placed, path, tincture);
+  const count = simpleParts(d).ordinary?.group.count ?? 1;
+  return thin && count !== groupAt(painted, path).count ? setOrdinaryNumber(painted, path, count) : painted;
+}
+
+/** The band, shape, top band or border at `path` drawn with this line (as its blazon bares it), the pictures refitted to the room it leaves. */
+export function setOrdinaryLine(d: Design, path: GroupPath, line: Line): Design {
+  return refitLayers(setLine(d, { k: 'group', path }, line));
+}
+
+/** The band or shape's line drawn on both its edges, or on its upper (dexter) or lower (sinister) edge only. */
+export function setOrdinaryEdgeSide(d: Design, path: GroupPath, side: EdgeSide): Design {
+  return refitLayers(setEdgeSide(d, { k: 'group', path }, side));
+}
+
+/** The band or shape turned upside down, shortened or touching the edges (or not), the pictures refitted to the room it leaves. */
+export function setOrdinaryToggle(d: Design, path: GroupPath, t: ShapeToggle, on: boolean): Design {
+  return refitLayers(setToggle(d, path, t, on));
+}
+
+/** The band or shape drawn double or triple (a tressure), the pictures refitted to the room it leaves. */
+export function setOrdinaryNumber(d: Design, path: GroupPath, count: number): Design {
+  return refitLayers(setOrdinaryCount(d, path, count));
+}
+
+/** The band or shape edged, or cotised once, twice or three times, the pictures refitted to the room it leaves. */
+export function setOrdinaryOutline(d: Design, path: GroupPath, outline: Outline): Design {
+  return refitLayers(setOutline(d, path, outline));
+}
+
+/** The line of the band or shape's cotises, the pictures refitted to the room it leaves. */
+export function setCotiseLine(d: Design, path: GroupPath, line: Line): Design {
+  return refitLayers(setLine(d, { k: 'cotises', path }, line));
+}
+
+/** The band raised, lowered or in its usual place, the pictures refitted to the room it leaves. */
+export function setOrdinaryBandPosition(d: Design, path: GroupPath, position: BandPosition): Design {
+  return refitLayers(setBandPosition(d, path, position));
 }
 
 export function setOrdinaryTincture(d: Design, t: GroupTincture): Design {
@@ -257,7 +333,7 @@ function clashGround(d: Design, path: GroupPath, t: Tincture): string {
   return words.length === 1 ? `${words[0]} part of the background` : `${words.join(' and ')} parts of the background`;
 }
 
-/** "On the background" / "On the vertical band" / "Around the vertical band" / "Below the top bar" / "Within the border". */
+/** "On the background" / "On the vertical band" / "Around the vertical band" / "Below the top bar" / "Within the border" / "Above the bottom bar" / "Within the inner border" / "Between the side curves" / "Above the hill" / "Below the bar with tabs". */
 export function placementLabel(d: Design, placement: Placement): string {
   const o = simpleParts(d).ordinary?.group.item;
   const name = (type: OrdinaryType) => ORDINARY_LABEL[type].plain.toLowerCase();
@@ -266,6 +342,10 @@ export function placementLabel(d: Design, placement: Placement): string {
   if (!ordinary) return 'On the background';
   if (ordinary === 'chief') return 'Below the top bar';
   if (ordinary === 'bordure') return 'Within the border';
+  if (ordinary === 'base' || ordinary === 'point' || ordinary === 'mount' || ordinary === 'trimount') return `Above the ${name(ordinary)}`;
+  if (ordinary === 'label') return `Below the ${name(ordinary)}`;
+  if (ordinary === 'orle' || ordinary === 'tressure') return `Within the ${name(ordinary)}`;
+  if (ordinary === 'flaunches') return `Between the ${name(ordinary)}`;
   return ORDINARY_KIND[ordinary] === 'central' ? `Around the ${name(ordinary)}` : 'On the background';
 }
 

@@ -3,7 +3,7 @@
 // that can't be added here stays in the list, greyed, and says why. Adding one closes the chooser and moves to its new card.
 
 import { useState } from 'preact/hooks';
-import { addLayer, addedLayerStep, groupAt, layerChoices, simpleParts, type Choice, type Design, type LayerKey } from '../../lib/heraldry';
+import { addLayer, addedLayerStep, groupAt, layerChoices, simpleParts, type Choice, type Design, type LayerKey, type LayerPlace } from '../../lib/heraldry';
 import { ordinaryPath, picturePath } from '../../lib/builder';
 import { nounOf } from './BuilderSteps';
 import { LockGlyph, useExplainer } from './Explainer';
@@ -35,6 +35,7 @@ const optionText = (design: Design, key: LayerKey): string => {
     case 'chief': return 'A top band (chief)';
     case 'bordure': return 'A border (bordure)';
     case 'overall': return 'Across everything (overall)';
+    case 'peripheral': return 'A border shape: canton, base, point…';
   }
 };
 
@@ -46,7 +47,7 @@ function applies(design: Design, key: LayerKey): boolean {
   const parts = simpleParts(design);
   const has = (type: 'chief' | 'bordure') => parts.peripherals.some((p) => p.place === type);
   switch (key) {
-    case 'on-ordinary': case 'chief': case 'bordure': return parts.ordinary !== null;
+    case 'on-ordinary': case 'chief': case 'bordure': case 'peripheral': return parts.ordinary !== null;
     case 'on-chief': return has('chief');
     case 'on-bordure': return has('bordure');
     default: return true;
@@ -56,7 +57,7 @@ function applies(design: Design, key: LayerKey): boolean {
 /** The chooser's groups, in order. */
 const GROUPS: ReadonlyArray<{ heading: string; keys: readonly LayerKey[] }> = [
   { heading: 'On it', keys: ['on-picture', 'on-ordinary', 'on-chief', 'on-bordure'] },
-  { heading: 'Around or beside it', keys: ['around', 'in-chief', 'in-base', 'in-canton', 'co-primary', 'chief', 'bordure'] },
+  { heading: 'Around or beside it', keys: ['around', 'in-chief', 'in-base', 'in-canton', 'co-primary', 'chief', 'bordure', 'peripheral'] },
   { heading: 'Across it', keys: ['overall'] },
 ];
 
@@ -64,7 +65,7 @@ interface Props {
   design: Design;
   onChange: (nd: Design) => void;
   /** Called after a layer is added, to move to the step that shows it (its card, or the band step). */
-  onAdded: (step: LayerKey | 'ordinary') => void;
+  onAdded: (step: LayerPlace | 'ordinary') => void;
 }
 
 export function AddLayer({ design, onChange, onAdded }: Props) {
@@ -78,7 +79,7 @@ export function AddLayer({ design, onChange, onAdded }: Props) {
       ? (
         <button
           key={c.value} type="button" class="button-secondary button-small" data-testid={`add-layer-${c.value}`}
-          onClick={() => { const nd = addLayer(design, c.value); onChange(nd); setOpen(false); onAdded(addedLayerStep(nd, c.value)); }}
+          onClick={() => { const nd = addLayer(design, c.value); onChange(nd); setOpen(false); onAdded(addedLayerStep(design, nd, c.value)); }}
         >
           {text}
         </button>

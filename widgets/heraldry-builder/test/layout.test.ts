@@ -3,11 +3,11 @@
 
 import { describe, expect, it } from 'vitest';
 import {
-  MIN_SLOT_SIZE, minSlotSize, canonicalSlots, contextSlots, fieldContext, groupSlots, inFirstPart, layoutOfKey, ordinarySamplePoints, pathPolygon, pointInPolygon, probePoints,
-  capacityIssue, ordinaryPath, shapeFrame, slotTransform, structuralIssues, FIELD_SHAPES, type GroundContext, type Layout, type LayoutContext, type OrdinaryType,
+  MIN_SLOT_SIZE, minSlotSize, canonicalSlots, contextSlots, fieldContext, groupSlots, inFirstPart, layoutOfKey, ordinaryGeometry, plainSpec, defaultOrdinaryFrame, pathPolygon, pointInPolygon, probePoints,
+  bandPlace, frameBeside, capacityIssue, cornerBesideBend, shapeFrame, slotTransform, structuralIssues, FIELD_SHAPES, type FieldShape, type GroundContext, type Layout, type LayoutContext, type OrdinarySpec, type OrdinaryType, type Slot,
 } from '../src/lib/heraldry';
 import type { Pt } from '../src/lib/heraldry/geometry';
-import { fits, groundFor, type Ground } from '../src/lib/heraldry/layout';
+import { fits, groundFor, isHandFitted, type Ground } from '../src/lib/heraldry/layout';
 import { arms, charge, div, group, nd, ordinary } from './helpers';
 
 const layout = (key: string, count: number): Layout => layoutOfKey(key, count)!;
@@ -21,14 +21,14 @@ describe('hand-fitted rows', () => {
     expect(slotsOf(field, 3, 'rows-2-1').map((s) => [s.x, s.y, s.size])).toEqual([[27, 29, 44], [73, 29, 44], [50, 77, 44]]);
     expect(slotsOf(field, 6, 'rows-3-2-1').map((s) => s.size)).toEqual([31, 31, 31, 31, 31, 31]);
     expect(slotsOf(fieldContext('bordure'), 1, 'single')).toEqual([{ x: 50, y: 55 + (54 - 55) * 0.86, size: 77.4, rotation: 0 }]);
-    expect(slotsOf({ k: 'between', ordinary: 'fess', peripheral: 'none' }, 3, 'host').map((s) => [s.x, s.y, s.size])).toEqual([[28, 19, 30], [72, 19, 30], [50, 86, 30]]);
-    expect(slotsOf({ k: 'on', ordinary: 'fess', peripheral: 'none' }, 3, 'host').map((s) => [s.x, s.y, s.size])).toEqual([[22, 50, 27], [50, 50, 27], [78, 50, 27]]);
+    expect(slotsOf({ k: 'between', ordinary: plainSpec('fess'), peripheral: 'none', keepOut: [] }, 3, 'host').map((s) => [s.x, s.y, s.size])).toEqual([[28, 19, 30], [72, 19, 30], [50, 86, 30]]);
+    expect(slotsOf({ k: 'on', ordinary: plainSpec('fess'), peripheral: 'none', keepOut: [] }, 3, 'host').map((s) => [s.x, s.y, s.size])).toEqual([[22, 50, 27], [50, 50, 27], [78, 50, 27]]);
   });
 
   it('are fitted for the other shapes with the same slot counts', () => {
     expect(slotsOf(field, 1, 'single', 'banner')).toEqual([{ x: 50, y: 63.75, size: 90, rotation: 0 }]);
     expect(slotsOf(field, 3, 'rows-2-1', 'lozenge')).toHaveLength(3);
-    expect(slotsOf({ k: 'on', ordinary: 'chief', peripheral: 'none' }, 2, 'host', 'round')).toHaveLength(2);
+    expect(slotsOf({ k: 'on', ordinary: plainSpec('chief'), peripheral: 'none', keepOut: [] }, 2, 'host', 'round')).toHaveLength(2);
   });
 
   it('put the single charge under a chief across the partition lines of a field', () => {
@@ -42,16 +42,16 @@ describe('hand-fitted rows', () => {
   });
 
   it('turn charges to follow a bend or a chevron limb, and not otherwise', () => {
-    expect(slotsOf({ k: 'on', ordinary: 'bend', peripheral: 'none' }, 3, 'host').map((s) => s.rotation)).toEqual([-45, -45, -45]);
-    expect(slotsOf({ k: 'on', ordinary: 'bend-sinister', peripheral: 'none' }, 2, 'host').map((s) => s.rotation)).toEqual([45, 45]);
-    expect(slotsOf({ k: 'on', ordinary: 'chevron', peripheral: 'none' }, 3, 'host').map((s) => [Math.round(s.x), s.rotation])).toEqual([[50, 0], [24, 45], [76, -45]]);
-    expect(slotsOf({ k: 'on', ordinary: 'fess', peripheral: 'none' }, 3, 'host').map((s) => s.rotation)).toEqual([0, 0, 0]);
+    expect(slotsOf({ k: 'on', ordinary: plainSpec('bend'), peripheral: 'none', keepOut: [] }, 3, 'host').map((s) => s.rotation)).toEqual([-45, -45, -45]);
+    expect(slotsOf({ k: 'on', ordinary: plainSpec('bend-sinister'), peripheral: 'none', keepOut: [] }, 2, 'host').map((s) => s.rotation)).toEqual([45, 45]);
+    expect(slotsOf({ k: 'on', ordinary: plainSpec('chevron'), peripheral: 'none', keepOut: [] }, 3, 'host').map((s) => [Math.round(s.x), s.rotation])).toEqual([[50, 0], [24, 45], [76, -45]]);
+    expect(slotsOf({ k: 'on', ordinary: plainSpec('fess'), peripheral: 'none', keepOut: [] }, 3, 'host').map((s) => s.rotation)).toEqual([0, 0, 0]);
     expect(slotsOf(field, 2, 'in-bend').map((s) => s.rotation)).toEqual([0, 0]);
   });
 
   it('give four on a cross or saltire as the five without the centre', () => {
     for (const type of ['cross', 'saltire'] as const) {
-      const four = slotsOf({ k: 'on', ordinary: type, peripheral: 'none' }, 4, 'host'), five = slotsOf({ k: 'on', ordinary: type, peripheral: 'none' }, 5, 'host');
+      const four = slotsOf({ k: 'on', ordinary: plainSpec(type), peripheral: 'none', keepOut: [] }, 4, 'host'), five = slotsOf({ k: 'on', ordinary: plainSpec(type), peripheral: 'none', keepOut: [] }, 5, 'host');
       expect(four).toEqual(five.filter((_, i) => i !== 2));
     }
   });
@@ -102,8 +102,8 @@ describe('the generic engine', () => {
   });
 
   it('has no layout for a context or count it does not know', () => {
-    expect(slotsOf({ k: 'between', ordinary: 'cross', peripheral: 'none' }, 2, 'host')).toEqual([]);
-    expect(slotsOf({ k: 'on', ordinary: 'pile', peripheral: 'none' }, 4, 'host')).toEqual([]);
+    expect(slotsOf({ k: 'between', ordinary: plainSpec('cross'), peripheral: 'none', keepOut: [] }, 2, 'host')).toEqual([]);
+    expect(slotsOf({ k: 'on', ordinary: plainSpec('pile'), peripheral: 'none', keepOut: [] }, 4, 'host')).toEqual([]);
     expect(slotsOf(field, 13, 'in-pale')).toEqual([]);
     expect(slotsOf(field, 3, 'rows-2-2')).toEqual([]);
     expect(contextSlots(field, 2, { arrangement: { k: 'host' }, position: null }, 'heater')).toEqual([]);
@@ -119,16 +119,16 @@ describe('capacity', () => {
     const slots = slotsOf(ctx, count, key);
     return slots.length === count && slots[0].size >= MIN_SLOT_SIZE;
   };
-  const between = (ordinary: OrdinaryType): LayoutContext => ({ k: 'between', ordinary, peripheral: 'none' });
+  const between = (ordinary: OrdinaryType): LayoutContext => ({ k: 'between', ordinary: plainSpec(ordinary), peripheral: 'none', keepOut: [] });
 
   it('fits six charges around a fess, a bend and a bend sinister', () => {
     for (const type of ['fess', 'bend', 'bend-sinister'] as const) expect(fits(between(type), 6, 'host'), type).toBe(true);
   });
 
   it('fits four on a bend, five on a fess and four on a saltire', () => {
-    expect(fits({ k: 'on', ordinary: 'bend', peripheral: 'none' }, 4, 'host')).toBe(true);
-    expect(fits({ k: 'on', ordinary: 'fess', peripheral: 'none' }, 5, 'host')).toBe(true);
-    expect(fits({ k: 'on', ordinary: 'saltire', peripheral: 'none' }, 4, 'host')).toBe(true);
+    expect(fits({ k: 'on', ordinary: plainSpec('bend'), peripheral: 'none', keepOut: [] }, 4, 'host')).toBe(true);
+    expect(fits({ k: 'on', ordinary: plainSpec('fess'), peripheral: 'none', keepOut: [] }, 5, 'host')).toBe(true);
+    expect(fits({ k: 'on', ordinary: plainSpec('saltire'), peripheral: 'none', keepOut: [] }, 4, 'host')).toBe(true);
   });
 
   it('fits six under a chief in three, two and one', () => {
@@ -231,12 +231,12 @@ describe('geometry helpers', () => {
   });
 
   it('an ordinary lies on the field parts under it', () => {
-    const above = (type: OrdinaryType) => ordinarySamplePoints(type).filter(([, y]) => y < 50).length;
-    expect(above('chief')).toBe(ordinarySamplePoints('chief').length);
-    expect(ordinarySamplePoints('bordure').some(([x]) => x < 50)).toBe(true);
-    expect(ordinarySamplePoints('bordure').some(([x]) => x > 50)).toBe(true);
-    expect(ordinarySamplePoints('fess').length).toBeGreaterThan(100);
-    expect(ordinarySamplePoints('fess')).toBe(ordinarySamplePoints('fess'));
+    const above = (type: OrdinaryType) => ordinaryGeometry(plainSpec(type), defaultOrdinaryFrame('heater')).samples.filter(([, y]) => y < 50).length;
+    expect(above('chief')).toBe(ordinaryGeometry(plainSpec('chief'), defaultOrdinaryFrame('heater')).samples.length);
+    expect(ordinaryGeometry(plainSpec('bordure'), defaultOrdinaryFrame('heater')).samples.some(([x]) => x < 50)).toBe(true);
+    expect(ordinaryGeometry(plainSpec('bordure'), defaultOrdinaryFrame('heater')).samples.some(([x]) => x > 50)).toBe(true);
+    expect(ordinaryGeometry(plainSpec('fess'), defaultOrdinaryFrame('heater')).samples.length).toBeGreaterThan(100);
+    expect(ordinaryGeometry(plainSpec('fess'), defaultOrdinaryFrame('heater')).samples).toBe(ordinaryGeometry(plainSpec('fess'), defaultOrdinaryFrame('heater')).samples);
   });
 });
 
@@ -293,7 +293,7 @@ describe('grounds', () => {
 
 describe('the larger counts on the ordinaries Table 7 gives them', () => {
   const sizeOf = (k: 'between' | 'on', ordinary: OrdinaryType, count: number) => {
-    const slots = slotsOf(k === 'between' ? { k, ordinary, peripheral: 'none' } : { k, ordinary, peripheral: 'none' }, count, 'host');
+    const slots = slotsOf(k === 'between' ? { k, ordinary: plainSpec(ordinary), peripheral: 'none', keepOut: [] } : { k, ordinary: plainSpec(ordinary), peripheral: 'none', keepOut: [] }, count, 'host');
     return slots.length === count ? slots[0].size : 0;
   };
 
@@ -304,11 +304,11 @@ describe('the larger counts on the ordinaries Table 7 gives them', () => {
   });
 
   it('keep the three under a chevron clear of its limbs and the charges on one off each other', () => {
-    const below = slotsOf({ k: 'between', ordinary: 'chevron', peripheral: 'none' }, 6, 'host').filter((s) => s.y > 71);
+    const below = slotsOf({ k: 'between', ordinary: plainSpec('chevron'), peripheral: 'none', keepOut: [] }, 6, 'host').filter((s) => s.y > 71);
     expect(below).toHaveLength(3);
-    const chevron = pathPolygon(ordinaryPath('chevron', 'heater'));
+    const chevron = pathPolygon(ordinaryGeometry(plainSpec('chevron'), defaultOrdinaryFrame('heater')).body);
     for (const s of below) expect(pointInPolygon(s.x, s.y, chevron)).toBe(false);
-    const on = slotsOf({ k: 'on', ordinary: 'chevron', peripheral: 'none' }, 6, 'host');
+    const on = slotsOf({ k: 'on', ordinary: plainSpec('chevron'), peripheral: 'none', keepOut: [] }, 6, 'host');
     for (const a of on) for (const b of on) if (a !== b) expect(Math.hypot(a.x - b.x, a.y - b.y)).toBeGreaterThan(a.size);
   });
 });
@@ -317,7 +317,7 @@ describe('around and on an ordinary with a chief and a bordure beside it', () =>
   const heater = shapeFrame('heater');
   const inset = pathPolygon(heater.inset);
   const ctx = (k: 'between' | 'on', ordinary: OrdinaryType, peripheral: 'chief' | 'bordure' | 'chief-bordure'): GroundContext =>
-    (k === 'between' ? { k, ordinary, peripheral } : { k, ordinary, peripheral });
+    (k === 'between' ? { k, ordinary: plainSpec(ordinary), peripheral, keepOut: [] } : { k, ordinary: plainSpec(ordinary), peripheral, keepOut: [] });
   const MARGIN = 0;
 
   it('keep the slots below the chief and inside the bordure, at a size that reads', () => {
@@ -338,19 +338,41 @@ describe('around and on an ordinary with a chief and a bordure beside it', () =>
     }
   });
 
-  it('have no room where the ordinary leaves none: a fess between charges under a chief', () => {
+  it('fit three charges between a fess under a chief at a size that reads: the fess is centred in the field the chief leaves, and thinner', () => {
     const slots = slotsOf(ctx('between', 'fess', 'chief'), 3, 'host');
-    expect(slots.length !== 3 || slots[0].size < MIN_SLOT_SIZE).toBe(true);
+    expect(slots).toHaveLength(3);
+    expect(slots[0].size).toBeGreaterThanOrEqual(MIN_SLOT_SIZE);
+    const fess = ordinaryGeometry(plainSpec('fess'), frameBeside('heater', true, []));
+    const ys = pathPolygon(fess.body).map(([, y]) => y), [top, foot] = [Math.min(...ys), Math.max(...ys)];
+    expect(fess.centre.y).toBeCloseTo(66, 0);
+    expect(foot - top).toBeCloseTo(24);
+    for (const s of slots) expect(s.y + s.size / 2 <= top || s.y - s.size / 2 >= foot, JSON.stringify(s)).toBe(true);
+    for (const s of slots) expect(s.y - s.size / 2).toBeGreaterThanOrEqual(heater.chiefBase);
+  });
+
+  it('centre a fess, cross, saltire and pall in what a chief or base leaves, and leave pales, bends and chevrons at the fess point', () => {
+    const baseFrame = frameBeside('heater', false, [plainSpec('base')]);
+    for (const type of ['fess', 'cross', 'saltire', 'pall', 'bar'] as const) {
+      expect(bandPlace(plainSpec(type), frameBeside('heater', true, [])), type).toEqual({ centre: { x: 50, y: expect.closeTo(66, 0) }, scale: 0.8 });
+      expect(bandPlace(plainSpec(type), baseFrame).centre.y, type).toBeCloseTo((0 + baseFrame.bottom) / 2);
+      expect(bandPlace(plainSpec(type), defaultOrdinaryFrame('heater')), type).toEqual({ centre: { x: 50, y: 50 }, scale: 1 });
+    }
+    for (const type of ['pale', 'bend', 'bend-sinister', 'pile', 'chevron'] as const) expect(bandPlace(plainSpec(type), frameBeside('heater', true, [])), type).toEqual({ centre: { x: 50, y: 50 }, scale: 1 });
+    // every shape: below its chief, above where it narrows
+    for (const shape of FIELD_SHAPES) {
+      const { centre } = bandPlace(plainSpec('fess'), frameBeside(shape, true, []));
+      expect(centre.y, shape).toBeGreaterThan(shapeFrame(shape).chiefBase + 12);
+    }
   });
 
   it('are the same as with no peripheral when there is none', () => {
     const fessBetween = ctx('between', 'fess', 'chief');
-    expect(slotsOf({ ...fessBetween, peripheral: 'none' }, 3, 'host')).toEqual(slotsOf({ k: 'between', ordinary: 'fess', peripheral: 'none' }, 3, 'host'));
+    expect(slotsOf({ ...fessBetween, peripheral: 'none', keepOut: [] }, 3, 'host')).toEqual(slotsOf({ k: 'between', ordinary: plainSpec('fess'), peripheral: 'none', keepOut: [] }, 3, 'host'));
   });
 
   it('lay out the ordinaries with only hand rows from them: four around a cross, kept off a bordure', () => {
     const slots = slotsOf(ctx('between', 'cross', 'bordure'), 4, 'host');
-    expect(slots.length === 4 ? slots[0].size : 0).toBeLessThan(slotsOf({ k: 'between', ordinary: 'cross', peripheral: 'none' }, 4, 'host')[0].size);
+    expect(slots.length === 4 ? slots[0].size : 0).toBeLessThan(slotsOf({ k: 'between', ordinary: plainSpec('cross'), peripheral: 'none', keepOut: [] }, 4, 'host')[0].size);
   });
 
   it('compose the ground of a context from its peripheral and the ordinary it sits around or on', () => {
@@ -362,13 +384,16 @@ describe('around and on an ordinary with a chief and a bordure beside it', () =>
   });
 
   it('say where charges sit in a capacity message', () => {
-    const d = nd(arms('azure', group(ordinary('fess'), 'or'), group(charge('rose'), 'argent', { count: 3 }), group(ordinary('chief'), 'argent')));
-    expect(capacityIssue(d, [1])?.message).toMatch(/around the fess, under the chief/);
+    const d = nd(arms('azure', group(ordinary('saltire'), 'or'), group(charge('rose'), 'argent', { count: 4 }), group(ordinary('chief'), 'argent')));
+    expect(capacityIssue(d, [1])?.message).toMatch(/around the saltire, under the chief/);
+    const fess = nd(arms('azure', group(ordinary('fess'), 'or'), group(charge('rose'), 'argent', { count: 3 }), group(ordinary('chief'), 'argent')));
+    expect(capacityIssue(fess, [1])).toBeNull();
   });
 });
 
 describe('charges on a bordure', () => {
-  const onBordure: LayoutContext = { k: 'on', ordinary: 'bordure', peripheral: 'none' };
+  // Charges on a bordure make it a charged bordure, drawn 15 wide.
+  const onBordure: LayoutContext = { k: 'on', ordinary: { ...plainSpec('bordure'), charged: true }, peripheral: 'none', keepOut: [] };
   const SHAPES = ['heater', 'banner', 'round', 'lozenge'] as const;
 
   it('lie along the middle of the band in every shape: evenly, upright, one size, the first at the top', () => {
@@ -389,10 +414,13 @@ describe('charges on a bordure', () => {
     }
   });
 
-  it('are as small as the band makes them, and still legible on the heater at every count', () => {
+  it('are as large as the wider band lets them be — at least 9 on the heater at every count, where a plain bordure gives 5 to 7 — and still legible', () => {
+    const plain: LayoutContext = { ...onBordure, ordinary: plainSpec('bordure') };
     for (let count = 1; count <= 12; count++) {
       const [slot] = slotsOf(onBordure, count, 'host');
       expect(slot.size, String(count)).toBeLessThan(MIN_SLOT_SIZE);
+      expect(slot.size, String(count)).toBeGreaterThanOrEqual(9);
+      expect(slot.size, String(count)).toBeGreaterThan(slotsOf(plain, count, 'host')[0].size);
       expect(slot.size, String(count)).toBeGreaterThanOrEqual(minSlotSize(onBordure));
     }
     expect(minSlotSize(onBordure)).toBeLessThan(minSlotSize(field));
@@ -403,6 +431,17 @@ describe('charges on a bordure', () => {
     expect(groupSlots(d, [1, 0], 'heater')).toEqual(slotsOf(onBordure, 8, 'host'));
   });
 
+  it('leave the charges on the field within the wider bordure', () => {
+    const d = nd(arms('gules', group(charge('lion'), 'or'), group(ordinary('bordure'), 'or', { charged: [group(charge('roundel'), 'azure', { count: 8 })] })));
+    for (const shape of SHAPES) {
+      const inset = pathPolygon(shapeFrame(shape).chargedInset);
+      const [lion] = groupSlots(d, [0], shape);
+      expect(pointInPolygon(lion.x, lion.y, inset), shape).toBe(true);
+      expect(lion.size, shape).toBeLessThan(slotsOf(fieldContext('bordure'), 1, 'single', shape)[0].size);
+    }
+    expect(canonicalSlots(d, [0])[0].size).toBeGreaterThanOrEqual(MIN_SLOT_SIZE);
+  });
+
   it('compose a ground that is the ring: inside the outline, clear of the inner edge', () => {
     const ground = groundFor(onBordure, 'heater');
     expect(ground.avoid).toHaveLength(1);
@@ -410,5 +449,93 @@ describe('charges on a bordure', () => {
     const [top] = slotsOf(onBordure, 1, 'host');
     expect(fits([{ x: top.x, y: top.y, rotation: 0 }], top.size, ground, false)).toBe(true);
     expect(fits([{ x: 50, y: 60, rotation: 0 }], top.size, ground, false)).toBe(false);
+  });
+});
+
+describe('a charge in chief or in base beside a bend', () => {
+  const beside = (type: OrdinaryType, position: 'chief' | 'base'): Extract<LayoutContext, { k: 'position' }> => ({ k: 'position', position, ordinary: plainSpec(type), peripheral: 'none', keepOut: [] });
+  /** Points round a slot's glyph disc, just inside its edge, and its centre. */
+  const disc = (s: Slot): Pt[] => [[s.x, s.y], ...Array.from({ length: 24 }, (_, k): Pt => [s.x + 0.49 * s.size * Math.cos((k * Math.PI) / 12), s.y + 0.49 * s.size * Math.sin((k * Math.PI) / 12)])];
+
+  it('sits in the corner the bend leaves free, clear of the bend, in every shape: sinister chief or dexter base (beside a bend sinister, dexter chief or sinister base)', () => {
+    const cases = [['bend', 'chief', 1, -1], ['bend', 'base', -1, 1], ['bend-sinister', 'chief', -1, -1], ['bend-sinister', 'base', 1, 1]] as const;
+    for (const shape of FIELD_SHAPES) {
+      const { x: fx, y: fy } = shapeFrame(shape).fessPoint;
+      for (const [type, position, sx, sy] of cases) {
+        const where = `${type} ${position} ${shape}`;
+        const [s] = slotsOf(beside(type, position), 1, `in-${position}`, shape);
+        expect(s, where).toBeDefined();
+        expect(Math.sign(s.x - fx), where).toBe(sx);
+        expect(Math.sign(s.y - fy), where).toBe(sy);
+        const bend = pathPolygon(ordinaryGeometry(plainSpec(type), defaultOrdinaryFrame(shape)).body), outline = pathPolygon(shapeFrame(shape).outline);
+        for (const [x, y] of disc(s)) {
+          expect(pointInPolygon(x, y, bend), where).toBe(false);
+          expect(pointInPolygon(x, y, outline), where).toBe(true);
+        }
+        if (shape === 'heater') expect(s.size, where).toBeGreaterThanOrEqual(MIN_SLOT_SIZE);
+      }
+    }
+  });
+
+  it('stands in the corner, not in the middle of the top as it does beside charges; two or more are set as they are elsewhere', () => {
+    const [one] = slotsOf(beside('bend', 'chief'), 1, 'in-chief');
+    const [alone] = slotsOf({ ...beside('bend', 'chief'), ordinary: null }, 1, 'in-chief');
+    expect(one.x).toBeGreaterThan(alone.x);
+    expect(cornerBesideBend(beside('bend', 'chief'), layout('in-chief', 1))).toBe('sinister-chief');
+    expect(cornerBesideBend(beside('bend', 'chief'), layout('in-chief', 2))).toBeNull();
+    expect(cornerBesideBend(beside('fess', 'chief'), layout('in-chief', 1))).toBeNull();
+  });
+});
+
+describe('ordinaries that are not plain', () => {
+  const wavy: OrdinarySpec = { ...plainSpec('fess'), lines: { a: 'wavy', b: 'wavy' } };
+  /** Points round a slot's glyph disc, just inside its edge. */
+  const rim = (s: Slot): Pt[] => Array.from({ length: 24 }, (_, k): Pt => [s.x + 0.49 * s.size * Math.cos((k * Math.PI) / 12), s.y + 0.49 * s.size * Math.sin((k * Math.PI) / 12)]);
+  const envelope = (spec: OrdinarySpec, shape: FieldShape) => ordinaryGeometry(spec, defaultOrdinaryFrame(shape)).envelope;
+
+  it('are laid out by the generic engine clear of their envelope', () => {
+    const between: LayoutContext = { k: 'between', ordinary: wavy, peripheral: 'none', keepOut: [] };
+    const on: LayoutContext = { k: 'on', ordinary: wavy, peripheral: 'none', keepOut: [] };
+    expect(isHandFitted(between, 2, layout('host', 2))).toBe(false);
+    expect(isHandFitted(on, 3, layout('host', 3))).toBe(false);
+    for (const shape of FIELD_SHAPES) {
+      const { outer, inner } = envelope(wavy, shape);
+      const around = slotsOf(between, 2, 'host', shape);
+      expect(around, shape).toHaveLength(2);
+      for (const s of around) for (const [x, y] of [[s.x, s.y], ...rim(s)]) expect(outer.some((ring) => pointInPolygon(x, y, ring)), `${shape} between`).toBe(false);
+      const along = slotsOf(on, 3, 'host', shape);
+      expect(along, shape).toHaveLength(3);
+      for (const s of along) for (const [x, y] of [[s.x, s.y], ...rim(s)]) expect(pointInPolygon(x, y, inner[0]), `${shape} on`).toBe(true);
+    }
+    // The wavy edges leave less room than the plain fess's hand rows.
+    expect(slotsOf(on, 3, 'host')[0].size).toBeLessThan(slotsOf({ ...on, ordinary: plainSpec('fess') }, 3, 'host')[0].size);
+  });
+
+  it('leave plain specs their hand rows', () => {
+    const hand: string[] = [];
+    for (const k of ['between', 'on'] as const) {
+      for (const type of ['fess', 'pale', 'bend', 'bend-sinister', 'chevron', 'cross', 'saltire', 'chief', 'bordure', 'pile'] as const) {
+        for (let count = 1; count <= 12; count++) {
+          if (isHandFitted({ k, ordinary: plainSpec(type), peripheral: 'none', keepOut: [] }, count, layout('host', count))) hand.push(`${k}-${type}:${count}`);
+          expect(isHandFitted({ k, ordinary: { ...plainSpec(type), lines: { a: 'embattled', b: 'embattled' } }, peripheral: 'none', keepOut: [] }, count, layout('host', count))).toBe(false);
+        }
+      }
+    }
+    expect(hand).toEqual([
+      'between-fess:2', 'between-fess:3', 'between-pale:2', 'between-bend:2', 'between-bend-sinister:2', 'between-chevron:3', 'between-cross:4', 'between-saltire:4', 'between-pile:2',
+      'on-fess:1', 'on-fess:2', 'on-fess:3', 'on-pale:1', 'on-pale:2', 'on-pale:3', 'on-bend:1', 'on-bend:2', 'on-bend:3', 'on-bend-sinister:1', 'on-bend-sinister:2', 'on-bend-sinister:3',
+      'on-chevron:1', 'on-chevron:2', 'on-chevron:3', 'on-cross:1', 'on-cross:4', 'on-cross:5', 'on-saltire:1', 'on-saltire:4', 'on-saltire:5', 'on-chief:1', 'on-chief:2', 'on-chief:3',
+      'on-pile:1', 'on-pile:2', 'on-pile:3',
+    ]);
+  });
+
+  it('keep charges on a bordure with a line off the ground its inner edge may take', () => {
+    const lined: OrdinarySpec = { ...plainSpec('bordure'), lines: { a: 'indented', b: 'indented' } };
+    const ctx: LayoutContext = { k: 'on', ordinary: lined, peripheral: 'none', keepOut: [] };
+    const [, inset] = envelope(lined, 'heater').inner;
+    const slots = slotsOf(ctx, 8, 'host');
+    expect(slots).toHaveLength(8);
+    for (const s of slots) for (const [x, y] of rim(s)) expect(pointInPolygon(x, y, inset)).toBe(false);
+    expect(slots[0].size).toBeLessThan(slotsOf({ ...ctx, ordinary: plainSpec('bordure') }, 8, 'host')[0].size);
   });
 });

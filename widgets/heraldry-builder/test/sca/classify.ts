@@ -26,8 +26,11 @@ export interface CheckFailure {
 }
 
 export interface Classification {
-  /** passes — every check passed; gap — `tags` say why not; fails — a widget bug (`failures`). */
-  status: 'passes' | 'gap' | 'fails';
+  /**
+   * passes — every check passed; gap — `tags` say why not; gap-unchecked — it fails, but the gap tagger was skipped (a sampled run), so
+   * which gap is not known; fails — a widget bug (`failures`).
+   */
+  status: 'passes' | 'gap' | 'gap-unchecked' | 'fails';
   /** The failed checks, in check order; [] when it passes. */
   failures: CheckFailure[];
   /** Sorted gap tags; non-empty exactly when the status is 'gap'. */
@@ -37,19 +40,21 @@ export interface Classification {
 // ── Checks ──────────────────────────────────────────────────────────────────
 
 /** The design-only checks, once per distinct design: many records match the same one. */
-const designChecks = new Map<string, Record<'assess' | 'render' | 'builder', string | null>>();
+const designChecks = new Map<string, Record<'assess' | 'render' | 'builder', string | null> & { replayed: boolean }>();
 
-function checkDesign(design: Design) {
+function checkDesign(design: Design, replay: boolean) {
   const key = canonicalJson(design);
   let found = designChecks.get(key);
-  if (!found) {
+  // A design whose builder replay was skipped (the sampled `npm test`) is checked again if a later caller asks for the replay.
+  if (!found || (replay && !found.replayed)) {
     const a = assessMatched(design);
     const rendered = checkRendered(design, renderShieldSvg(design));
-    const path = builderPath(design);
+    const path = replay ? builderPath(design) : null;
     found = {
+      replayed: replay,
       assess: a.kind === 'ok' ? null : `${a.kind === 'violation' ? a.status : a.kind}: ${a.issues.map((i) => i.message).join(' ')}`,
       render: rendered.length ? rendered.join('; ') : null,
-      builder: path.problems.length ? path.problems.join('; ') : null,
+      builder: path && path.problems.length ? path.problems.join('; ') : null,
     };
     designChecks.set(key, found);
   }
@@ -67,12 +72,23 @@ function noMatchDetail(m: MatchResult): string {
 
 const gapTag = (g: Gap): string => `${g.category}:${g.detail}`;
 
+/**
+ * What `npm test` may skip to stay fast (test/sca/sample.ts). The default, no options, is the full sweep: every check on every
+ * record, which is what `npm run sca:ignore` runs.
+ */
+export interface ClassifyOptions {
+  /** Whether to replay the builder's clicks for this matched design (the 'builder' check); skipped, it reads as passing. */
+  builder?: (design: Design) => boolean;
+  /** Whether to re-run the gap tagger for an unmatched record; skipped, the classification is 'gap-unchecked', with no tags. */
+  tagger?: (record: ArmoryRecord) => boolean;
+}
+
 /** The five checks for one SCA blazon, with the matcher's verdict. */
-export function checkBlazon(scaBlazon: string): { match: MatchResult; failures: CheckFailure[] } {
+export function checkBlazon(scaBlazon: string, options: ClassifyOptions = {}): { match: MatchResult; failures: CheckFailure[] } {
   const match = explainMatch(scaBlazon);
   if (!match.match) return { match, failures: [{ check: 'match', detail: noMatchDetail(match) }] };
   const design = match.match.design!;
-  const found = checkDesign(design);
+  const found = checkDesign(design, options.builder ? options.builder(design) : true);
   const ours = blazon(design);
   const failures: CheckFailure[] = [];
   if (found.assess) failures.push({ check: 'assess', detail: found.assess });
@@ -91,8 +107,8 @@ function layoutTag(design: Design, issue: Issue): string {
   if (g.item.k !== 'charge') return 'design';
   const ctx = layoutContext(design, issue.at.path);
   switch (ctx.k) {
-    case 'on': return `on-${ctx.ordinary}`;
-    case 'between': return `between-${ctx.ordinary}`;
+    case 'on': return `on-${ctx.ordinary.type}`;
+    case 'between': return `between-${ctx.ordinary.type}`;
     case 'position': return `in-${ctx.position}`;
     case 'around': return `around-${g.count}`;
     case 'on-charge': return 'on-charge';
@@ -135,7 +151,7 @@ function arrangementWording(m: MatchResult): string | null {
   return `blazon-wording-differs:${!widget ? 'sca-states-arrangement' : !sca ? 'widget-states-arrangement' : 'arrangement-differs'}`;
 }
 
-function gapTags(record: ArmoryRecord, m: MatchResult): string[] {
+function gapTags(record: ArmoryRecord, m: MatchResult, options: ClassifyOptions): string[] | null {
   if (m.match) {
     const design = m.match.design!;
     return findingTags(design);
@@ -144,14 +160,17 @@ function gapTags(record: ArmoryRecord, m: MatchResult): string[] {
   if (wording) return [wording];
   // A proposal the widget parsed but doesn't draw names its gaps exactly.
   if (m.gaps) return m.gaps.map(gapTag);
+  if (options.tagger && !options.tagger(record)) return null;
   const tags = tagGaps(record);
   return tags.length ? tags : [`other:${m.status}`];
 }
 
-export function classify(record: ArmoryRecord): Classification {
-  const { match, failures } = checkBlazon(record.blazon);
+export function classify(record: ArmoryRecord, options: ClassifyOptions = {}): Classification {
+  const { match, failures } = checkBlazon(record.blazon, options);
   if (!failures.length) return { status: 'passes', failures, tags: [] };
-  const tags = [...new Set(gapTags(record, match))].sort();
+  const found = gapTags(record, match, options);
+  if (!found) return { status: 'gap-unchecked', failures, tags: [] };
+  const tags = [...new Set(found)].sort();
   return { status: tags.length ? 'gap' : 'fails', failures, tags };
 }
 

@@ -5,11 +5,12 @@ import {
   DEFAULT_DESIGN, adjustDesign, assess, chargesClash, companionNote, fixText, isUntouched,
   issueStep, ordinaryPath, picturePath, placementLabel, readabilityTip, replaceDesign, sameShapedDesign, setCharge,
   setDivision, setFieldTincture, setGroupTincture, setLayout, setModifier, setOrdinary, setOrdinaryTincture, setPlainField,
-  setPosture, undoStillOffered,
+  setPosture, setFieldEdgeSide, setFieldLine, setCotiseLine, setOrdinaryBandPosition, setOrdinaryEdgeSide, setOrdinaryLine, setOrdinaryNumber, setOrdinaryOutline, setOrdinaryToggle, setVariation, setVariationPieces, setVariationTincture, undoStillOffered,
 } from '../src/lib/builder';
 import {
-  addLayer, addedLayerStep, blazon, countChoices, groupAt, groupTinctureChoices, layerChoices, pathOfPlace, layoutChoices, placementChoices, postureChoices, readability, removeLayer, setLayerTincture, signature, simpleParts, suggestTinctureFix,
-  type Design, type GroupPath, type LayerKey,
+  addLayer, addedLayerStep, blazon, edgeSideChoices, lineChoices, outlineAt, outlineChoices, outlineTinctureChoices, outlineTinctureOf, setOutlineTincture, toggleChoices, countChoices, groupAt, groupTinctureChoices, layerChoices, pathOfPlace, layoutChoices, placementChoices, postureChoices, readability, removeLayer, setLayerTincture, signature, simpleParts, suggestTinctureFix,
+  MORE_ORDINARIES, REFUSED_ORDINARIES, layersIn, ordinaryCountChoices, peripheralItemChoices, setPeripheralItem,
+  type Design, type Division, type GroupPath, type LayerKey,
 } from '../src/lib/heraldry';
 import { arms, charge, div, group, nd, ordinary, plain, setCount, setPlacement } from './helpers';
 
@@ -52,7 +53,8 @@ describe('builder transitions', () => {
     expect(r.problems[0]).toMatchObject({ code: 'tincture', at: { k: 'group', path: [0] } });
     expect(issueStep(d, r.problems[0])).toBe('picture');
     const fix = suggestTinctureFix(d);
-    expect(fix).toMatchObject({ layer: 'group', path: [0] });
+    // it changes the tincture of the group with the issue alone
+    expect(fix!.design.groups.map((g) => g.paint)).toEqual([expect.not.objectContaining(d.groups[0].paint), ...d.groups.slice(1).map((g) => g.paint)]);
     expect(assess(fix!.design).status).toBe('valid');
   });
 
@@ -79,6 +81,62 @@ describe('builder transitions', () => {
     expect(setPlainField(d).kind === 'arms' && setPlainField(d).field).toEqual({ k: 'tincture', t: 'azure' });
     const q = setDivision(d, 'quarterly');
     expect(q.kind === 'arms' && q.field).toMatchObject({ k: 'divided', division: 'quarterly', parts: [{ t: 'azure' }, { t: 'or' }] });
+  });
+
+  it('setDivision keeps a line the new division takes, drops one it doesn\'t', () => {
+    const fieldOf = (d: Design) => (d.kind === 'arms' ? d.field : null);
+    const wavy = setFieldLine(setDivision(DEFAULT_DESIGN, 'per-pale'), 'wavy');
+    expect(fieldOf(wavy)).toMatchObject({ division: 'per-pale', lines: { a: 'wavy', b: 'wavy' } });
+    expect(fieldOf(setDivision(wavy, 'per-chevron'))).toMatchObject({ division: 'per-chevron', lines: { a: 'wavy', b: 'wavy' } });
+    // Enarched is for per fess, per bend and per chevron only; a ployé line for per chevron only.
+    const arched = setFieldLine(setDivision(DEFAULT_DESIGN, 'per-fess'), 'enarched');
+    expect(fieldOf(setDivision(arched, 'per-bend'))).toMatchObject({ lines: { a: 'enarched' } });
+    expect(fieldOf(setDivision(arched, 'per-pale'))).toMatchObject({ lines: { a: 'plain', b: 'plain' } });
+    expect(fieldOf(setDivision(setFieldLine(setDivision(DEFAULT_DESIGN, 'per-chevron'), 'ploye'), 'per-fess'))).toMatchObject({ lines: { a: 'plain' } });
+    expect(blazon(setCharge(wavy, 'picture', 'mullet'))).toMatch(/^Per pale wavy /);
+  });
+
+  it('keeps the line between stripes, through their count and colours, and drops it when a division or plain colour replaces them', () => {
+    const fieldOf = (d: Design) => (d.kind === 'arms' ? d.field : null);
+    const barry = setFieldLine(setVariation(DEFAULT_DESIGN, 'barry'), 'wavy');
+    expect(fieldOf(barry)).toMatchObject({ k: 'variation', variation: 'barry', lines: { a: 'wavy' } });
+    expect(fieldOf(setVariation(barry, 'paly'))).toMatchObject({ variation: 'paly', lines: { a: 'wavy' } });
+    expect(fieldOf(setVariationPieces(barry, 8))).toMatchObject({ pieces: 8, lines: { a: 'wavy' } });
+    expect(fieldOf(setVariationTincture(barry, 0, 'vert'))).toMatchObject({ lines: { a: 'wavy' } });
+    // Chevronny's corners take no line; a division takes the line only where it allows it.
+    expect(fieldOf(setVariation(barry, 'chevronny'))).toMatchObject({ lines: { a: 'plain' } });
+    expect(setFieldLine(setVariation(DEFAULT_DESIGN, 'chevronny'), 'wavy')).toEqual(setVariation(DEFAULT_DESIGN, 'chevronny'));
+    expect(fieldOf(setPlainField(barry))).toMatchObject({ k: 'tincture' });
+  });
+
+  it('a quartered field\'s line goes on both lines, or on one of them', () => {
+    const fieldOf = (d: Design) => (d.kind === 'arms' ? d.field : null);
+    const q = setFieldLine(setDivision(DEFAULT_DESIGN, 'quarterly'), 'embattled');
+    expect(fieldOf(q)).toMatchObject({ lines: { a: 'embattled', b: 'embattled' } });
+    expect(fieldOf(setFieldEdgeSide(q, 'b'))).toMatchObject({ lines: { a: 'plain', b: 'embattled' } });
+    expect(fieldOf(setFieldEdgeSide(q, 'a'))).toMatchObject({ lines: { a: 'embattled', b: 'plain' } });
+    expect(fieldOf(setFieldEdgeSide(setFieldEdgeSide(q, 'b'), 'both'))).toMatchObject({ lines: { a: 'embattled', b: 'embattled' } });
+    // The side stays when the line changes.
+    expect(fieldOf(setFieldLine(setFieldEdgeSide(q, 'b'), 'wavy'))).toMatchObject({ lines: { a: 'plain', b: 'wavy' } });
+    // A division with one line has no sides to choose.
+    expect(edgeSideChoices(setFieldLine(setDivision(DEFAULT_DESIGN, 'per-pale'), 'wavy'), { k: 'field' })).toEqual([]);
+    expect(edgeSideChoices(q, { k: 'field' }).map((c) => c.value)).toEqual(['both', 'a', 'b']);
+  });
+
+  it('offers the lines the division takes, in order, and blocks a line the background itself refuses', () => {
+    const per = (division: Division) => lineChoices(setDivision(DEFAULT_DESIGN, division), { k: 'field' });
+    expect(lineChoices(DEFAULT_DESIGN, { k: 'field' })).toEqual([]);
+    const pale = per('per-pale').map((c) => c.value);
+    expect(pale.slice(0, 3)).toEqual(['plain', 'embattled', 'wavy']);
+    expect(pale).not.toContain('dancetty');
+    expect(pale).not.toContain('enarched');
+    expect(per('per-chevron').map((c) => c.value)).toEqual(expect.arrayContaining(['enarched', 'ploye']));
+    expect(lineChoices(setVariation(DEFAULT_DESIGN, 'barry'), { k: 'field' }).map((c) => c.value)).toContain('dancetty');
+    // Azure and sable across a wavy line is a dark pair (App H); a straight line or a metal is fine.
+    const dark = setFieldTincture(setFieldTincture(setDivision(DEFAULT_DESIGN, 'per-pale'), 0, 'sable'), 1, 'azure');
+    const choices = lineChoices(dark, { k: 'field' });
+    expect(choices.find((c) => c.value === 'plain')).toMatchObject({ allowed: true });
+    expect(choices.find((c) => c.value === 'wavy')).toMatchObject({ allowed: false });
   });
 
   it('removing the ordinary moves on-ordinary pictures back to the background', () => {
@@ -278,9 +336,9 @@ describe('a top band and a border beside the band', () => {
     const chief = addLayer(band, 'chief');
     expect(blazon(chief)).toBe('Azure, a chevron argent, a chief Or.');
     expect(assess(chief).status).toBe('valid');
-    expect(layerChoices(chief).map((c) => c.value)).toEqual(['co-primary', 'on-picture', 'around', 'in-chief', 'in-base', 'in-canton', 'on-ordinary', 'on-chief', 'bordure', 'on-bordure', 'overall']);
+    expect(layerChoices(chief).map((c) => c.value)).toEqual(['co-primary', 'on-picture', 'around', 'in-chief', 'in-base', 'in-canton', 'on-ordinary', 'on-chief', 'bordure', 'on-bordure', 'peripheral', 'overall']);
     expect(['in-chief', 'in-base', 'in-canton'].map((k) => allowed(chief, k as LayerKey))).toEqual([false, true, false]);
-    expect(issueStep(chief, { code: 'tincture', reason: 'contrast', at: { k: 'group', path: pathOfPlace(chief, 'chief')! }, message: '', slots: [] })).toBe('chief');
+    expect(issueStep(chief, { code: 'tincture', reason: 'contrast', part: 'body', at: { k: 'group', path: pathOfPlace(chief, 'chief')! }, message: '', slots: [] })).toBe('chief');
     expect(blazon(setLayerTincture(chief, 'chief', 'gules'))).toContain('chief');
     const both = addLayer(chief, 'bordure');
     expect(blazon(both)).toMatch(/^Azure, a chevron argent, a chief and a bordure Or\.$/);
@@ -322,11 +380,11 @@ describe('a top band and a border beside the band', () => {
 
   it('are shown on their own card, except a top band beside a border alone, which becomes the band (step 2)', () => {
     const chiefed = addLayer(band, 'chief');
-    expect(addedLayerStep(chiefed, 'chief')).toBe('chief');
+    expect(addedLayerStep(band, chiefed, 'chief')).toBe('chief');
     const border = setOrdinary(DEFAULT_DESIGN, 'bordure');
     const withChief = addLayer(border, 'chief');
     expect(ordinaryPath(withChief) && groupAt(withChief, ordinaryPath(withChief)!).item).toMatchObject({ k: 'ordinary', type: 'chief' });
-    expect(addedLayerStep(withChief, 'chief')).toBe('ordinary');
+    expect(addedLayerStep(border, withChief, 'chief')).toBe('ordinary');
   });
 });
 
@@ -344,7 +402,7 @@ describe('pictures in chief, in base or in canton beside the band or the picture
     const base = addLayer(lion, 'in-base');
     expect(blazon(base)).toBe('Azure, a lion and in base a mullet Or.');
     expect(assess(base).status).toBe('valid');
-    expect(issueStep(base, { code: 'tincture', reason: 'contrast', at: { k: 'group', path: pathOfPlace(base, 'in-base')! }, message: '', slots: [] })).toBe('in-base');
+    expect(issueStep(base, { code: 'tincture', reason: 'contrast', part: 'body', at: { k: 'group', path: pathOfPlace(base, 'in-base')! }, message: '', slots: [] })).toBe('in-base');
     expect(blazon(addLayer(lion, 'in-canton'))).toBe('Azure, a lion and in canton a mullet Or.');
     expect(removeLayer(base, 'in-base')).toEqual(lion);
   });
@@ -396,7 +454,7 @@ describe('pictures set around the picture', () => {
     const around = addLayer(lion, 'around');
     expect(blazon(around)).toBe('Azure, a lion between three mullets Or.');
     expect(assess(around).status).toBe('valid');
-    expect(issueStep(around, { code: 'tincture', reason: 'contrast', at: { k: 'group', path: pathOfPlace(around, 'around')! }, message: '', slots: [] })).toBe('around');
+    expect(issueStep(around, { code: 'tincture', reason: 'contrast', part: 'body', at: { k: 'group', path: pathOfPlace(around, 'around')! }, message: '', slots: [] })).toBe('around');
     expect(blazon(setCharge(around, 'around', 'crescent'))).toBe('Azure, a lion between three crescents Or.');
     expect(removeLayer(around, 'around')).toEqual(lion);
     // One group stands around or beside the picture, not both.
@@ -525,7 +583,7 @@ describe('extra pictures on the band', () => {
     d = setCharge(d, 'on-ordinary', 'heart');
     expect(groupAt(d, extra(d)).item).toMatchObject({ charge: 'heart' });
     expect(groupAt(d, picture(d)).item).toMatchObject({ charge: 'mullet' });
-    expect(issueStep(d, { code: 'tincture', reason: 'contrast', at: { k: 'group', path: extra(d) }, message: '', slots: [] })).toBe('on-ordinary');
+    expect(issueStep(d, { code: 'tincture', reason: 'contrast', part: 'body', at: { k: 'group', path: extra(d) }, message: '', slots: [] })).toBe('on-ordinary');
     // Changing the band to a chief keeps both pictures.
     const chief = setOrdinary(d, 'chief');
     expect(groupAt(chief, picture(chief))).toMatchObject({ role: 'primary', relation: null });
@@ -607,5 +665,216 @@ describe('a new band starts apart from what it meets', () => {
     const lion = setCharge(DEFAULT_DESIGN, 'picture', 'lion');
     expect(blazon(addLayer(lion, 'overall'))).toBe('Azure, a lion Or and overall a bend argent.');
     expect(blazon(addLayer(setOrdinary(DEFAULT_DESIGN, 'bend'), 'chief'))).toBe('Azure, a bend Or, a chief argent.');
+  });
+});
+
+describe('lines on the band, the top band and the border', () => {
+  const lineOf = (d: Design, path: GroupPath) => { const i = groupAt(d, path).item; return i.k === 'ordinary' ? i.lines : null; };
+
+  it('a line is the blazon\'s bare meaning of it, and the side row widens or narrows it', () => {
+    const fess = setOrdinary(DEFAULT_DESIGN, 'fess');
+    const path = ordinaryPath(fess)!;
+    expect(edgeSideChoices(fess, { k: 'group', path })).toEqual([]);
+    const embattled = setOrdinaryLine(fess, path, 'embattled');
+    expect(lineOf(embattled, path)).toEqual({ a: 'embattled', b: 'plain' });
+    expect(blazon(embattled)).toMatch(/a fess embattled /);
+    expect(edgeSideChoices(embattled, { k: 'group', path }).map((c) => c.value)).toEqual(['both', 'a', 'b']);
+    const both = setOrdinaryEdgeSide(embattled, path, 'both');
+    expect(blazon(both)).toMatch(/a fess embattled counter-embattled /);
+    expect(blazon(setOrdinaryEdgeSide(embattled, path, 'b'))).toMatch(/a fess embattled on the lower edge /);
+    expect(lineOf(setOrdinaryLine(both, path, 'wavy'), path)).toEqual({ a: 'wavy', b: 'wavy' });
+    expect(lineOf(setOrdinaryLine(both, path, 'plain'), path)).toEqual({ a: 'plain', b: 'plain' });
+    // A cross has one line.
+    const cross = setOrdinaryLine(setOrdinary(DEFAULT_DESIGN, 'cross'), ordinaryPath(setOrdinary(DEFAULT_DESIGN, 'cross'))!, 'wavy');
+    expect(edgeSideChoices(cross, { k: 'group', path: ordinaryPath(cross)! })).toEqual([]);
+  });
+
+  it('offers a line only to hosts that take it', () => {
+    const chief = setOrdinary(DEFAULT_DESIGN, 'chief');
+    const target = { k: 'group', path: ordinaryPath(chief)! } as const;
+    const byLine = (d: Design, t: typeof target) => new Map(lineChoices(d, t).map((c) => [c.value, c.allowed]));
+    expect(byLine(chief, target).get('dancetty')).toBeUndefined();
+    expect(byLine(chief, target).get('enarched')).toBe(true);
+    const fess = setOrdinary(DEFAULT_DESIGN, 'fess');
+    const fessTarget = { k: 'group', path: ordinaryPath(fess)! } as const;
+    expect(byLine(fess, fessTarget).get('dancetty')).toBe(true);
+  });
+
+  it('setOrdinary keeps an edge the new band takes, and drops one it can\'t', () => {
+    const fess = setOrdinary(DEFAULT_DESIGN, 'fess');
+    const wavy = setOrdinaryLine(fess, ordinaryPath(fess)!, 'wavy');
+    const bend = setOrdinary(wavy, 'bend');
+    expect(lineOf(bend, ordinaryPath(bend)!)).toEqual({ a: 'wavy', b: 'wavy' });
+    const cross = setOrdinary(wavy, 'cross');
+    expect(lineOf(cross, ordinaryPath(cross)!)).toEqual({ a: 'wavy', b: 'wavy' });
+    const enarched = setOrdinaryLine(fess, ordinaryPath(fess)!, 'enarched');
+    const pale = setOrdinary(enarched, 'pale');
+    expect(lineOf(pale, ordinaryPath(pale)!)).toEqual({ a: 'plain', b: 'plain' });
+  });
+
+  it('a top band and a border take a line of their own', () => {
+    const framed = addLayer(addLayer(setOrdinary(DEFAULT_DESIGN, 'fess'), 'chief'), 'bordure');
+    const withChief = setOrdinaryLine(framed, pathOfPlace(framed, 'chief')!, 'embattled');
+    const both = setOrdinaryLine(withChief, pathOfPlace(withChief, 'bordure')!, 'engrailed');
+    expect(blazon(both)).toMatch(/a chief embattled .* a bordure engrailed /);
+  });
+});
+
+describe('the outline of the band: edged, or cotised', () => {
+  const itemOf = (d: Design) => { const i = groupAt(d, ordinaryPath(d)!).item; if (i.k !== 'ordinary') throw new Error('not an ordinary'); return i; };
+  const bend = (): Design => setOrdinary(DEFAULT_DESIGN, 'bend');
+
+  it('setOrdinaryOutline keeps the band and gives it cotises, in its own tincture to begin with', () => {
+    const d = bend();
+    const path = ordinaryPath(d)!;
+    const cotised = setOrdinaryOutline(d, path, 'cotised');
+    expect(outlineAt(cotised, path)).toBe('cotised');
+    expect(itemOf(cotised)).toMatchObject({ type: 'bend', cotised: { count: 1, paint: { k: 'tincture', t: 'or' }, line: 'plain' }, fimbriated: null });
+    expect(blazon(cotised)).toBe('Azure, a bend cotised Or.');
+    expect(blazon(setOrdinaryOutline(cotised, path, 'doubly-cotised'))).toBe('Azure, a bend doubly cotised Or.');
+    // Edged is the other outline, in a tincture other than the band's own.
+    const edged = setOrdinaryOutline(cotised, path, 'fimbriated');
+    expect(itemOf(edged)).toMatchObject({ cotised: null, fimbriated: { k: 'tincture' } });
+    expect(itemOf(edged).fimbriated).not.toEqual({ k: 'tincture', t: 'or' });
+    expect(setOrdinaryOutline(edged, path, 'none')).toEqual(d);
+  });
+
+  it('offers the outline to a central band only, and blocks what the rules refuse', () => {
+    const d = bend();
+    expect(outlineChoices(d, ordinaryPath(d)!).map((c) => [c.value, c.allowed])).toEqual([['none', true], ['fimbriated', true], ['cotised', true], ['doubly-cotised', true], ['triply-cotised', true]]);
+    const chief = addLayer(d, 'chief');
+    expect(outlineChoices(chief, pathOfPlace(chief, 'chief')!)).toEqual([]);
+    // A band raised can't be edged (LoAR 06/2005, Mathild), though it can be cotised.
+    const raised = setOrdinaryBandPosition(d, ordinaryPath(d)!, 'enhanced');
+    const choices = new Map(outlineChoices(raised, ordinaryPath(raised)!).map((c) => [c.value, c]));
+    expect(choices.get('fimbriated')).toMatchObject({ allowed: false, reason: expect.stringContaining('Mathild') });
+    expect(choices.get('cotised')!.allowed).toBe(true);
+  });
+
+  it('the outline tincture picks the first that stands out, and blocks the ones that do not', () => {
+    const d = setOrdinaryOutline(bend(), ordinaryPath(bend())!, 'cotised');
+    const path = ordinaryPath(d)!;
+    // Cotises of the colour of the field lie on it: azure on azure.
+    const choices = new Map(outlineTinctureChoices(d, path).map((c) => [c.value, c.allowed]));
+    expect(choices.get('azure')).toBe(false);
+    expect(choices.get('argent')).toBe(true);
+    expect(choices.has('counterchanged')).toBe(false);
+    expect(outlineTinctureOf(setOutlineTincture(d, path, 'argent'), path)).toBe('argent');
+    // On a divided field the cotises may be counterchanged.
+    const divided = setOrdinaryOutline(setOrdinary(setDivision(DEFAULT_DESIGN, 'per-pale'), 'bend'), ordinaryPath(setOrdinary(setDivision(DEFAULT_DESIGN, 'per-pale'), 'bend'))!, 'cotised');
+    expect(outlineTinctureChoices(divided, ordinaryPath(divided)!).some((c) => c.value === 'counterchanged')).toBe(true);
+  });
+
+  it('the cotises have a line of their own, and follow the band\'s line when they had followed it', () => {
+    const d = setOrdinaryOutline(bend(), ordinaryPath(bend())!, 'cotised');
+    const path = ordinaryPath(d)!;
+    const wavy = setOrdinaryLine(d, path, 'wavy');
+    expect(itemOf(wavy)).toMatchObject({ lines: { a: 'wavy', b: 'wavy' }, cotised: { line: 'wavy' } });
+    expect(blazon(wavy)).toBe('Azure, a bend wavy cotised Or.');
+    // Plain cotises beside a wavy band.
+    const plainCotises = setCotiseLine(wavy, path, 'plain');
+    expect(blazon(plainCotises)).toBe('Azure, a bend wavy cotised plain Or.');
+    // A band's new line leaves the cotises that had their own.
+    expect(itemOf(setOrdinaryLine(plainCotises, path, 'embattled')).cotised).toMatchObject({ line: 'plain' });
+    expect(lineChoices(d, { k: 'cotises', path }).map((c) => c.value)).toContain('dancetty');
+    expect(lineChoices(bend(), { k: 'cotises', path: ordinaryPath(bend())! })).toEqual([]);
+  });
+
+  it('setOrdinary carries the outline to a band that may have it, and drops it otherwise', () => {
+    const d = setOrdinaryOutline(bend(), ordinaryPath(bend())!, 'doubly-cotised');
+    expect(outlineAt(setOrdinary(d, 'fess'), ordinaryPath(setOrdinary(d, 'fess'))!)).toBe('doubly-cotised');
+    const chief = setOrdinary(d, 'chief');
+    expect(chief.groups.every((g) => g.item.k !== 'ordinary' || (g.item.cotised === null && g.item.fimbriated === null))).toBe(true);
+  });
+
+  it('Hollow is offered to a cross and a saltire only (a bend shows it blocked, with SENA A3C), and not with an edging', () => {
+    const cross = setOrdinary(DEFAULT_DESIGN, 'cross');
+    const path = ordinaryPath(cross)!;
+    expect(toggleChoices(cross, path).map((c) => c.value)).toContain('voided');
+    expect(toggleChoices(bend(), ordinaryPath(bend())!).find((c) => c.value === 'voided')).toMatchObject({ allowed: false, reason: expect.stringContaining("can't be voided") });
+    const hollow = setOrdinaryToggle(cross, path, 'voided', true);
+    expect(blazon(hollow)).toBe('Azure, a cross voided Or.');
+    const edging = outlineChoices(hollow, path).find((c) => c.value === 'fimbriated')!;
+    expect(edging).toMatchObject({ allowed: false, reason: expect.stringContaining('voided') });
+    expect(outlineChoices(hollow, path).find((c) => c.value === 'cotised')!.allowed).toBe(true);
+  });
+});
+
+describe('corner and edge shapes: the More shapes row and any number of them beside the band', () => {
+  it('setOrdinary to every MORE_ORDINARIES type never throws, alone, beside a picture or a chief, and the band step shows it', () => {
+    const lion = setCharge(DEFAULT_DESIGN, 'picture', 'lion');
+    const chiefed = addLayer(setOrdinary(DEFAULT_DESIGN, 'fess'), 'chief');
+    for (const type of MORE_ORDINARIES) {
+      for (const start of [DEFAULT_DESIGN, lion, chiefed, setOrdinary(DEFAULT_DESIGN, 'chief')]) {
+        const d = setOrdinary(start, type);
+        expect(groupAt(d, ordinaryPath(d)!).item, type).toMatchObject({ k: 'ordinary', type });
+      }
+    }
+    expect(placementLabel(setOrdinary(lion, 'base'), 'field')).toBe('Above the bottom bar');
+    expect(placementLabel(setOrdinary(lion, 'orle'), 'field')).toBe('Within the inner border');
+    expect(placementLabel(setOrdinary(lion, 'flaunches'), 'field')).toBe('Between the side curves');
+  });
+
+  it('a tressure is drawn double, then triple at a click (a single one is an orle); a gore turns to the right; the dexter and sinister points are never offered', () => {
+    const lion = setGroupTincture(setCharge(DEFAULT_DESIGN, 'picture', 'lion'), picturePath(setCharge(DEFAULT_DESIGN, 'picture', 'lion'))!, 'or');
+    const tressure = setOrdinary(lion, 'tressure');
+    const path = ordinaryPath(tressure)!;
+    expect(groupAt(tressure, path).count).toBe(2);
+    expect(blazon(tressure)).toMatch(/^Azure, a lion (Or )?within a double tressure \w+\.$/);
+    expect(ordinaryCountChoices(tressure, path)).toEqual([{ value: 2, allowed: true }, { value: 3, allowed: true }]);
+    const triple = setOrdinaryNumber(tressure, path, 3);
+    expect(blazon(triple)).toMatch(/within a triple tressure/);
+    expect(setOrdinaryNumber(triple, ordinaryPath(triple)!, 1)).toBe(triple);
+    const orle = setOrdinary(triple, 'orle');
+    expect(groupAt(orle, ordinaryPath(orle)!).count).toBe(1);
+    expect(ordinaryCountChoices(orle, ordinaryPath(orle)!)).toEqual([]);
+    const gore = setOrdinary(lion, 'gore');
+    expect(toggleChoices(gore, ordinaryPath(gore)!).map((c) => c.value)).toEqual(['sinister']);
+    expect(blazon(setOrdinaryToggle(gore, ordinaryPath(gore)!, 'sinister', true))).toMatch(/and a gore sinister \w+\.$/);
+    expect(MORE_ORDINARIES.some((t) => REFUSED_ORDINARIES.includes(t))).toBe(false);
+    const card = addLayer(setOrdinaryTincture(setOrdinary(DEFAULT_DESIGN, 'fess'), 'or'), 'peripheral');
+    expect(peripheralItemChoices(card, 'peripheral-0').map((c) => c.value)).toEqual(['base', 'point', 'canton', 'quarter', 'gyron', 'orle', 'tressure', 'flaunches', 'gore', 'label', 'mount', 'trimount']);
+    const asTressure = setPeripheralItem(card, 'peripheral-0', 'tressure');
+    expect(groupAt(asTressure, pathOfPlace(asTressure, 'peripheral-0')!).count).toBe(2);
+  });
+
+  it('adds one after another as their own cards, each a type the shield has none of, and removes each', () => {
+    const band = setOrdinaryTincture(setOrdinary(DEFAULT_DESIGN, 'bend'), 'or');
+    expect(layerChoices(DEFAULT_DESIGN).find((c) => c.value === 'peripheral')).toMatchObject({ allowed: false });
+    const one = addLayer(band, 'peripheral');
+    expect(layersIn(one)).toEqual(['peripheral-0']);
+    expect(addedLayerStep(band, one, 'peripheral')).toBe('peripheral-0');
+    const two = addLayer(one, 'peripheral');
+    const three = addLayer(two, 'peripheral');
+    expect(layersIn(three)).toEqual(['peripheral-0', 'peripheral-1', 'peripheral-2']);
+    const types = three.groups.flatMap((g) => (g.item.k === 'ordinary' && g.role === 'peripheral' ? [g.item.type] : []));
+    expect(new Set(types).size).toBe(3);
+    expect(assess(three).status).toBe('valid');
+    expect(layersIn(removeLayer(three, 'peripheral-1'))).toEqual(['peripheral-0', 'peripheral-1']);
+    expect(removeLayer(three, 'peripheral-1').groups).toHaveLength(3);
+  });
+
+  it('changes a card to another type, blocking the ones the shield already has and those that break a rule', () => {
+    const d = addLayer(setOrdinaryTincture(setOrdinary(DEFAULT_DESIGN, 'fess'), 'or'), 'peripheral');
+    const canton = setPeripheralItem(d, 'peripheral-0', 'canton');
+    expect(blazon(canton)).toMatch(/^Azure, a fess Or and a canton \w+\.$/);
+    const sinister = setOrdinaryToggle(canton, pathOfPlace(canton, 'peripheral-0')!, 'sinister', true);
+    expect(blazon(sinister)).toMatch(/a canton sinister/);
+    expect(toggleChoices(canton, pathOfPlace(canton, 'peripheral-0')!).map((c) => c.value)).toEqual(['sinister']);
+    const both = setPeripheralItem(addLayer(canton, 'peripheral'), 'peripheral-0', 'base');
+    expect(peripheralItemChoices(both, 'peripheral-0').find((c) => c.value === 'canton')).toMatchObject({ allowed: false, reason: expect.stringMatching(/already a canton/) });
+    // Something overall over a corner shape breaks SENA App I4.
+    const overall = addLayer(setCharge(DEFAULT_DESIGN, 'picture', 'lion'), 'overall');
+    expect(layerChoices(overall).find((c) => c.value === 'peripheral')?.allowed).toBe(false);
+  });
+
+  it('a base or canton picked as the band stays the band when another is added, and a chief added beside one is a card', () => {
+    const canton = setOrdinary(DEFAULT_DESIGN, 'quarter');
+    const added = addLayer(canton, 'peripheral');
+    expect(groupAt(added, ordinaryPath(added)!).item).toMatchObject({ type: 'quarter' });
+    expect(addedLayerStep(canton, added, 'peripheral')).toBe('peripheral-0');
+    const chiefed = addLayer(canton, 'chief');
+    expect(groupAt(chiefed, ordinaryPath(chiefed)!).item).toMatchObject({ type: 'quarter' });
+    expect(layersIn(chiefed)).toEqual(['chief']);
   });
 });

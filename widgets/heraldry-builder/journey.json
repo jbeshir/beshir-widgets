@@ -65,6 +65,176 @@
       "expect": {"selector":"[data-testid=shape-banner] [role=radio][aria-checked=true]"}
     },
     {
+      "label": "edge-wavy-division",
+      "steps": [
+        {"eval":"document.querySelectorAll('[data-testid$=-toggle][aria-expanded=false]').forEach((b) => b.click())"},
+        {"click":"[data-testid=division-per-pale]"},
+        {"click":"[data-testid=field-shape-more] summary"},
+        {"waitFor":"[data-testid=field-edge-wavy]"},
+        {"click":"[data-testid=field-edge-wavy]"},
+        {"waitFor":"[data-testid=blazon]:has-text(\"wavy\")"},
+        {"eval":"window.scrollTo(0, 0)"}
+      ],
+      "expect": {"selector":"[data-testid=blazon]:has-text(\"wavy\")"}
+    },
+    {
+      "label": "ordinary-embattled",
+      "steps": [
+        {"eval":"document.querySelectorAll('[data-testid$=-toggle][aria-expanded=false]').forEach((b) => b.click())"},
+        {"click":"[data-testid=ordinary-bend]"},
+        {"click":"[data-testid=ordinary-shape-more] summary"},
+        {"waitFor":"[data-testid=ordinary-edge-embattled]"},
+        {"click":"[data-testid=ordinary-edge-embattled]"},
+        {"waitFor":"[data-testid=blazon]:has-text(\"embattled\")"},
+        {"eval":"window.scrollTo(0, 0)"}
+      ],
+      "expect": {"selector":"[data-testid=blazon]:has-text(\"embattled\")"}
+    },
+    {
+      "label": "chevron-upside-down",
+      "steps": [
+        {"eval":"document.querySelectorAll('[data-testid$=-toggle][aria-expanded=false]').forEach((b) => b.click())"},
+        {"click":"[data-testid=ordinary-chevron]"},
+        {"click":"[data-testid=ordinary-shape-more] summary"},
+        {"waitFor":"[data-testid=ordinary-shape-inverted]"},
+        {"click":"[data-testid=ordinary-shape-inverted]"},
+        {"waitFor":"[data-testid=blazon]:has-text(\"inverted\")"},
+        {"eval":"window.scrollTo(0, 0)"}
+      ],
+      "expect": {"selector":"[data-testid=ordinary-shape-inverted] [aria-pressed=true]"}
+    },
+    {
+      "label": "ordinary-cotised",
+      "steps": [
+        {"eval":"document.querySelectorAll('[data-testid$=-toggle][aria-expanded=false]').forEach((b) => b.click())"},
+        {"click":"[data-testid=ordinary-fess]"},
+        {"click":"[data-testid=ordinary-shape-more] summary"},
+        {"waitFor":"[data-testid=ordinary-outline-cotised]"},
+        {"click":"[data-testid=ordinary-outline-cotised]"},
+        {"waitFor":"[data-testid=swatch-outline-argent]"},
+        {"click":"[data-testid=swatch-outline-argent]"},
+        {"waitFor":"[data-testid=blazon]:has-text(\"cotised argent\")"},
+        {"eval":"window.scrollTo(0, 0)"}
+      ],
+      "expect": {"selector":"[data-testid=blazon]:has-text(\"cotised argent\")"}
+    },
+    {
+      "label": "ordinary-embattled-cotised",
+      "steps": [
+        {"eval":"document.querySelectorAll('[data-testid$=-toggle][aria-expanded=false]').forEach((b) => b.click())"},
+        {"click":"[data-testid=ordinary-chevron]"},
+        {"click":"[data-testid=ordinary-shape-more] summary"},
+        {"waitFor":"[data-testid=ordinary-edge-embattled]"},
+        {"click":"[data-testid=ordinary-edge-embattled]"},
+        {"click":"[data-testid=ordinary-shape-inverted]"},
+        {"click":"[data-testid=ordinary-outline-cotised]"},
+        {"waitFor":"[data-testid=swatch-outline-argent]"},
+        {"click":"[data-testid=swatch-outline-argent]"},
+        {"waitFor":"[data-testid=blazon]:has-text(\"cotised argent\")"},
+        {"eval":"window.scrollTo(0, 0)"}
+      ],
+      "expect": {"selector":"[data-testid=blazon]:has-text(\"inverted embattled\")"}
+    },
+    {
+      "label": "more-shapes-canton",
+      "steps": [
+        {"eval":"document.querySelectorAll('[data-testid$=-toggle][aria-expanded=false]').forEach((b) => b.click())"},
+        {"click":"[data-testid=ordinary-shape-more] summary"},
+        {"waitFor":"[data-testid=ordinary-canton]"},
+        {"click":"[data-testid=ordinary-canton]"},
+        {"waitFor":"[data-testid=blazon]:has-text(\"a canton\")"},
+        {"eval":"window.scrollTo(0, 0)"}
+      ],
+      "expect": {"selector":"[data-testid=ordinary-canton] [role=radio][aria-checked=true]"}
+    },
+    {
+      "label": "orle-within",
+      "steps": [
+        {"eval":"document.querySelectorAll('[data-testid$=-toggle][aria-expanded=false]').forEach((b) => b.click())"},
+        {"eval":"document.querySelector('#charge-tab-beast')?.click()"},
+        {"click":"[data-testid=charge-lion]"},
+        {"click":"[data-testid=ordinary-shape-more] summary"},
+        {"waitFor":"[data-testid=ordinary-orle]"},
+        {"click":"[data-testid=ordinary-orle]"},
+        {"waitFor":"[data-testid=blazon]:has-text(\"within an orle\")"},
+        {"eval":"window.scrollTo(0, 0)"}
+      ],
+      "expect": {"selector":"[data-testid=blazon]:has-text(\"within an orle\")"}
+    },
+    {
+      "label": "more-shapes-pall",
+      "steps": [
+        {"eval":"document.querySelectorAll('[data-testid$=-toggle][aria-expanded=false]').forEach((b) => b.click())"},
+        {"eval":"document.querySelector('#charge-tab-beast')?.click()"},
+        {"click":"[data-testid=charge-lion]"},
+        {"click":"[data-testid=ordinary-shape-more] summary"},
+        {"waitFor":"[data-testid=ordinary-pall]"},
+        {"click":"[data-testid=ordinary-pall]"},
+        {"waitFor":"[data-testid=ordinary-shape-inverted]"},
+        {"click":"[data-testid=ordinary-shape-inverted]"},
+        {"waitFor":"[data-testid=blazon]:has-text(\"pall inverted\")"},
+        {"eval":"window.scrollTo(0, 0)"}
+      ],
+      "expect": {"selector":"[data-testid=blazon]:has-text(\"pall inverted\")"}
+    },
+    {
+      "label": "thin-bendlets",
+      "steps": [
+        {"eval":"document.querySelectorAll('[data-testid$=-toggle][aria-expanded=false]').forEach((b) => b.click())"},
+        {"click":"[data-testid=ordinary-bend]"},
+        {"click":"[data-testid=ordinary-shape-more] summary"},
+        {"waitFor":"[data-testid=ordinary-shape-thin]"},
+        {"click":"[data-testid=ordinary-shape-thin]"},
+        {"waitFor":"[data-testid=ordinary-number-3]"},
+        {"click":"[data-testid=ordinary-number-3]"},
+        {"waitFor":"[data-testid=blazon]:has-text(\"three bendlets\")"},
+        {"eval":"window.scrollTo(0, 0)"}
+      ],
+      "expect": {"selector":"[data-testid=blazon]:has-text(\"three bendlets\")"}
+    },
+    {
+      "label": "gyronny-six",
+      "steps": [
+        {"eval":"document.querySelectorAll('[data-testid$=-toggle][aria-expanded=false]').forEach((b) => b.click())"},
+        {"click":"[data-testid=field-shape-more] summary"},
+        {"waitFor":"[data-testid=division-gyronny]"},
+        {"click":"[data-testid=division-gyronny]"},
+        {"waitFor":"[data-testid=field-pieces-6]"},
+        {"click":"[data-testid=field-pieces-6]"},
+        {"waitFor":"[data-testid=blazon]:has-text(\"Gyronny of six\")"},
+        {"eval":"window.scrollTo(0, 0)"}
+      ],
+      "expect": {"selector":"[data-testid=blazon]:has-text(\"Gyronny of six\")"}
+    },
+    {
+      "label": "per-pall-three-colours",
+      "steps": [
+        {"eval":"document.querySelectorAll('[data-testid$=-toggle][aria-expanded=false]').forEach((b) => b.click())"},
+        {"click":"[data-testid=field-shape-more] summary"},
+        {"waitFor":"[data-testid=division-per-pall]"},
+        {"click":"[data-testid=division-per-pall]"},
+        {"waitFor":"#swatch-field3-argent"},
+        {"click":"#swatch-field3-argent"},
+        {"waitFor":"[data-testid=blazon]:has-text(\"Per pall azure, Or and argent\")"},
+        {"eval":"window.scrollTo(0, 0)"}
+      ],
+      "expect": {"selector":"[data-testid=blazon]:has-text(\"Per pall azure, Or and argent\")"}
+    },
+    {
+      "label": "per-chevron-inverted-embattled",
+      "steps": [
+        {"eval":"document.querySelectorAll('[data-testid$=-toggle][aria-expanded=false]').forEach((b) => b.click())"},
+        {"click":"[data-testid=field-shape-more] summary"},
+        {"waitFor":"[data-testid=division-per-chevron-inverted]"},
+        {"click":"[data-testid=division-per-chevron-inverted]"},
+        {"waitFor":"[data-testid=field-edge-embattled]"},
+        {"click":"[data-testid=field-edge-embattled]"},
+        {"waitFor":"[data-testid=blazon]:has-text(\"Per chevron inverted embattled\")"},
+        {"eval":"window.scrollTo(0, 0)"}
+      ],
+      "expect": {"selector":"[data-testid=blazon]:has-text(\"Per chevron inverted embattled\")"}
+    },
+    {
       "label": "shape-round",
       "steps": [
         {"eval":"document.querySelectorAll('[data-testid$=-toggle][aria-expanded=false]').forEach((b) => b.click())"},

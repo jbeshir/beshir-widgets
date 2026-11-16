@@ -7,22 +7,25 @@
 import type { ComponentChildren } from 'preact';
 import { useEffect, useState } from 'preact/hooks';
 import {
-  CATEGORY_LABEL, TREATMENT_LABEL, VARIATION_LABEL, asSemy, asTreated, asVariation, fieldParts, furName, semyColourChoices, setSemyColour, setTreatmentColour, treatmentColourChoices, CHARGES, CHARGE_CATEGORIES, DIVISION_LABEL, DIVISION_PART_LABEL, DRAWN_DIVISIONS, DRAWN_ORDINARIES, ORDINARY_LABEL,
-  TINCTURE_LABEL, chargeLabel, chargePath, chargesInCategory, countChoices, fieldTinctureChoices, groupAt,
+  CATEGORY_LABEL, TREATMENT_LABEL, VARIATION_LABEL, asSemy, asTreated, asVariation, fieldParts, furName, semyColourChoices, setSemyColour, setTreatmentColour, treatmentColourChoices, CHARGES, CHARGE_CATEGORIES, DIVISION_LABEL, DIVISION_PART_LABEL, BUILDER_DIVISIONS, MORE_DIVISIONS, GYRONNY_PIECES, BUILDER_ORDINARIES, MORE_ORDINARIES, TILE_OF, ORDINARY_COUNTS, ordinaryCountLabel, LINE_LABEL, ORDINARY_LABEL, OUTLINE_LABEL, SHAPE_TOGGLE_LABEL, BAND_POSITION_LABEL, ordinaryEdgeHost, SHAPE_TOGGLES, toggledOn, bandPositionOf, outlineAt, outlineTinctureOf, edgeSideChoices, edgeSideOf, lineChoices, lineWords,
+  TINCTURE_LABEL, chargeLabel, chargePath, lineAllowed, chargesInCategory, countChoices, fieldTinctureChoices, groupAt,
   isBlocked, isHalfPosition, layoutChoices, layoutKey, layoutLabel, layoutOfKey, modifierChoices, placementChoices, plainFirst, postureChoices, postureLabel, resolve, simpleParts,
-  type ChargeCategory, type Choice, type Companion, type Design, type Division, type FieldShape, type GroupPath, type Issue,
-  type LayoutChoice, type LayoutKey, type OrdinaryType, type Paint, type PaintTarget, type PlainTerm, type Posture,
+  type ChargeCategory, type Choice, type Companion, type Design, type Division, type FieldShape, type GroupPath, type Issue, type Line,
+  partCount, type FieldPart, type LayoutChoice, type LayoutKey, type OrdinaryType, type Paint, type PaintTarget, type PlainTerm, type Posture,
 } from '../../lib/heraldry';
-import { numberWord } from '../../lib/heraldry/words';
+import { joinAnd, numberWord } from '../../lib/heraldry/words';
 import {
   companionNote, ordinaryPath, picturePath, placementLabel, setCharge,
-  setBadge, setDivision, setFieldTincture, setLayout, setModifier, setOrdinary, setPlainField, setPosture,
+  setBadge, setDivision, setDivisionPieces, setFieldEdgeSide, setFieldLine, setFieldTincture, setLayout, setModifier, setOrdinary, setPlainField, setPosture,
 } from '../../lib/builder';
 import { capitalise } from '../../lib/heraldry/words';
 import { ChargeIcon, Shield } from '../Shield';
 import { ChoiceButton, RadioGroup, type OptionStatus } from './Choices';
 import { useExplainer } from './Explainer';
 import { FieldPattern } from './VariationPicker';
+import { EdgePicker } from './EdgePicker';
+import { MoreShapes } from './MoreShapes';
+import { OrdinaryShapeControls, hasShapeControls, usesShapeControls } from './OrdinaryEdges';
 import { FurPicker } from './FurPicker';
 import { SemyPicker } from './SemyPicker';
 import { TreatmentPicker } from './TreatmentPicker';
@@ -59,12 +62,22 @@ function icon(input: unknown): Design {
   return r.design;
 }
 
+/** The tinctures a division's icon is drawn in, one per part. */
+const iconParts = (division: Division): string[] => ['or', 'azure', 'gules'].slice(0, partCount(division));
+/** The tile designs already made, by tile: a re-render never resolves a picture again (the previews draw in the shape the page is showing, so no key needs one). */
+const TILE_ICONS = new Map<string, Design>();
+const tileIcon = (key: string, make: () => Design): Design => {
+  let design = TILE_ICONS.get(key);
+  if (!design) TILE_ICONS.set(key, (design = make()));
+  return design;
+};
 const ICON_FIELD = (division: Division | null): Design =>
-  icon({ v: 2, field: division ? { k: 'divided', division, parts: ['or', 'azure'] } : 'azure', groups: [] });
+  tileIcon(`field|${division}`, () => icon({ v: 2, field: division ? { k: 'divided', division, parts: iconParts(division) } : 'azure', groups: [] }));
 /** The badge tile: a star standing alone, with no shield behind it. */
 const ICON_BADGE: Design = icon({ v: 2, kind: 'badge', groups: [{ item: { k: 'charge', charge: 'mullet' }, paint: 'or' }] });
+/** A band or shape tile: as the builder first draws it (a tressure double). */
 const ICON_ORDINARY = (type: OrdinaryType): Design =>
-  icon({ v: 2, field: 'azure', groups: [{ item: { k: 'ordinary', type }, paint: 'or' }] });
+  tileIcon(`ordinary|${type}`, () => icon({ v: 2, field: 'azure', groups: [{ item: { k: 'ordinary', type }, count: ORDINARY_COUNTS[type]?.[0] ?? 1, paint: 'or' }] }));
 
 function LayerIssues({ issues }: { issues: Issue[] }) {
   if (!issues.length) return null;
@@ -143,7 +156,7 @@ function paintWords(p: Paint): string {
     case 'stain': return p.stain;
     case 'proper': return 'natural colours';
     case 'fur': return furName(p);
-    case 'divided': return `split ${p.parts.map(paintWords).join(' and ')}`;
+    case 'divided': return `split ${joinAnd(p.parts.map(paintWords))}`;
     case 'variation': return `${lower(VARIATION_LABEL[p.variation].plain)}: ${p.parts.map(paintWords).join(' and ')}`;
     case 'treated': return `${paintWords(p.ground)} with ${lower(TINCTURE_LABEL[p.ink].plain)} ${lower(TREATMENT_LABEL[p.treatment].plain)}`;
     case 'semy': return `${paintWords(p.ground)} strewn with ${paintWords(p.ink)} ${CHARGES[p.charge.charge].plural}`;
@@ -155,7 +168,7 @@ function paintWords(p: Paint): string {
 export const colourWords = (design: Design, path: GroupPath): string => paintWords(groupAt(design, path).paint);
 
 /** The tinctures of a part of the background and the picker that sets it: a plain tincture, or the one under a scatter or brick (which stay). */
-function FieldPartPicker({ design, part, legend, onChange }: { design: Design; part: 0 | 1; legend: string; onChange: (nd: Design) => void }) {
+function FieldPartPicker({ design, part, legend, onChange }: { design: Design; part: FieldPart; legend: string; onChange: (nd: Design) => void }) {
   const target: PaintTarget = { k: 'field', part };
   const paint = fieldParts(design)[part];
   const group = `field${part + 1}`, testid = `field-tincture-${part + 1}`;
@@ -165,23 +178,26 @@ function FieldPartPicker({ design, part, legend, onChange }: { design: Design; p
   return <TincturePicker group={group} testid={testid} legend={legend} choices={fieldTinctureChoices(design, part)} value={paint.k === 'tincture' ? paint.t : null} onChange={(t) => onChange(setFieldTincture(design, part, t))} />;
 }
 
+/** A part index as a field part (a pattern found on a part that isn't there shows the first). */
+const asFieldPart = (i: number): FieldPart => (i === 1 || i === 2 ? i : 0);
+
 /** "More colours and patterns…" for the background: a fur, a scatter or brick for a part of it (which part, when it is divided), or stripes and checks over it all. */
 function FieldMore({ design, division, onChange }: { design: Design; division: Division | null; onChange: (nd: Design) => void }) {
   const parts = fieldParts(design);
   const patterned = parts.findIndex((p) => p.k !== 'tincture');
-  const [part, setPart] = useState<0 | 1>(patterned === 1 ? 1 : 0);
-  // A field that comes to have its pattern on the other part (an example loaded, Undo) shows that part.
+  const [part, setPart] = useState<FieldPart>(asFieldPart(patterned));
+  // A field that comes to have its pattern on another part (an example loaded, Undo) shows that part.
   useEffect(() => {
-    if (patterned >= 0) setPart(patterned === 1 ? 1 : 0);
+    if (patterned >= 0) setPart(asFieldPart(patterned));
   }, [patterned]);
-  const shown: 0 | 1 = division ? part : 0;
+  const shown: FieldPart = division && part < parts.length ? part : 0;
   const target: PaintTarget = { k: 'field', part: shown };
   const noun = division ? 'this part' : 'the background';
   const forPart = (body: ComponentChildren) => (
     <>
       {division && (
         <RadioGroup label="Which part of the background" class="segmented segmented-wide" testid="field-more-part">
-          {([0, 1] as const).map((i) => (
+          {parts.map((_, i) => asFieldPart(i)).map((i) => (
             <ChoiceButton key={i} testid={`field-more-part-${i + 1}`} checked={shown === i} label={DIVISION_PART_LABEL[division][i]} onSelect={() => setPart(i)} onBlocked={never} class="segment">
               <span>{DIVISION_PART_LABEL[division][i]}</span>
             </ChoiceButton>
@@ -208,11 +224,77 @@ function FieldMore({ design, division, onChange }: { design: Design; division: D
   );
 }
 
+/** The line of the background in words after its shape, `, wavy`; nothing for a straight one. */
+function lineSuffix(design: Design): string {
+  const { a, b } = design.kind === 'arms' && (design.field.k === 'divided' || design.field.k === 'variation') ? design.field.lines : { a: 'plain', b: 'plain' } as const;
+  const line = a !== 'plain' ? a : b;
+  return line === 'plain' ? '' : `, ${LINE_LABEL[line].term}`;
+}
+
+/**
+ * What an edge chip of a field pictures its line on: the field, but a gyronny's lines on a field per fess (eight lines in a 30 px chip read as a
+ * star whichever line they are drawn with: the line, not the division, is what is chosen), save one only a gyronny takes (arrondi).
+ */
+function lineHost<T extends { k: string }>(icon: T, line: Line): T | { k: 'divided'; division: Division; parts: readonly string[] } {
+  const gyronny = icon.k === 'divided' && (icon as { division?: Division }).division === 'gyronny';
+  return gyronny && lineAllowed({ k: 'division', division: 'per-fess' }, line) ? { k: 'divided', division: 'per-fess', parts: iconParts('per-fess') } : icon;
+}
+
+/** "More divisions and edges…": the divisions beyond the first seven, how many wedges a gyronny has, and how the lines of a divided or striped background are drawn. */
+function FieldEdges({ design, division, shape, onChange }: { design: Design; division: Division | null; shape: FieldShape; onChange: (nd: Design) => void }) {
+  if (design.kind !== 'arms') return null;
+  const target = { k: 'field' } as const;
+  const lines = lineChoices(design, target);
+  const field = design.field;
+  const icon = field.k === 'divided'
+    ? { k: 'divided', division: field.division, pieces: field.pieces, parts: iconParts(field.division) }
+    : field.k === 'variation' ? { k: 'variation', variation: field.variation, pieces: field.pieces, parts: ['or', 'azure'] } : null;
+  const lined = field.k === 'divided' || field.k === 'variation' ? field.lines : null;
+  const current = lined ? (lined.a !== 'plain' ? lined.a : lined.b) : 'plain';
+  return (
+    <MoreShapes testid="field" summary="More divisions and edges…" used={(division !== null && MORE_DIVISIONS.includes(division)) || current !== 'plain'}>
+      {() => (
+        <>
+          <p class="picker-legend">More divisions</p>
+          <RadioGroup label="More divisions" class="icon-grid icon-grid-field" testid="field-more-division-select">
+            {MORE_DIVISIONS.map((d) => (
+              <ChoiceButton key={d} testid={`division-${d}`} checked={division === d} label={nameOf(DIVISION_LABEL[d])} title={DIVISION_LABEL[d].plain} onSelect={() => onChange(setDivision(design, d))} onBlocked={never} class="icon-choice">
+                <Shield design={ICON_FIELD(d)} shape={shape} size={30} label={null} />
+                <span class="choice-label">{capitalise(DIVISION_LABEL[d].term)}</span>
+              </ChoiceButton>
+            ))}
+          </RadioGroup>
+          {field.k === 'divided' && field.division === 'gyronny' && (
+            <>
+              <p class="picker-legend">How many wedges</p>
+              <RadioGroup label="How many wedges" class="segmented" testid="field-pieces">
+                {GYRONNY_PIECES.map((n) => (
+                  <ChoiceButton key={n} testid={`field-pieces-${n}`} checked={field.pieces === n} label={`${capitalise(numberWord(n))} wedges`} onSelect={() => onChange(setDivisionPieces(design, n))} onBlocked={never} class="segment">
+                    <span>{n}</span>
+                  </ChoiceButton>
+                ))}
+              </RadioGroup>
+            </>
+          )}
+          {icon && lines.length > 0 && (
+            <EdgePicker
+              testid="field-edge" noun="the background" iconKey={JSON.stringify(icon)} icon={(line) => ({ v: 2, field: { ...lineHost(icon, line), lines: { a: line, b: line } }, groups: [] })} zoom shape={shape}
+              lines={lines} line={current} onLine={(l) => onChange(setFieldLine(design, l))}
+              sides={edgeSideChoices(design, target)} side={edgeSideOf(design, target)} sideNoun="lines"
+              sideLabels={{ both: 'Both lines', a: 'Up-and-down line only', b: 'Across line only' }} onSide={(s) => onChange(setFieldEdgeSide(design, s))}
+            />
+          )}
+        </>
+      )}
+    </MoreShapes>
+  );
+}
+
 function fieldSummary(design: Design): string {
   if (design.kind === 'badge') return 'No background (badge)';
   const field = design.field;
-  if (field.k === 'divided') return `${DIVISION_LABEL[field.division].plain}: ${field.parts.map(paintWords).join(' and ')}`;
-  return field.k === 'variation' ? capitalise(paintWords(field)) : `${capitalise(paintWords(field))}, plain`;
+  if (field.k === 'divided') return `${DIVISION_LABEL[field.division].plain}${lineSuffix(design)}: ${joinAnd(field.parts.map(paintWords))}`;
+  return field.k === 'variation' ? `${capitalise(paintWords(field))}${lineSuffix(design)}` : `${capitalise(paintWords(field))}, plain`;
 }
 
 interface FieldStepProps extends ShapedStepProps {
@@ -232,7 +314,7 @@ export function FieldStep({ design, shape, onChange, onBadge, notice, issues, ac
           <Shield design={ICON_FIELD(null)} shape={shape} size={30} label={null} />
           <span class="choice-label">{capitalise(PLAIN_FIELD_LABEL.term)}</span>
         </ChoiceButton>
-        {DRAWN_DIVISIONS.map((d) => (
+        {BUILDER_DIVISIONS.map((d) => (
           <ChoiceButton key={d} testid={`division-${d}`} checked={division === d} label={nameOf(DIVISION_LABEL[d])} title={DIVISION_LABEL[d].plain} onSelect={() => onChange(setDivision(design, d))} onBlocked={never} class="icon-choice">
             <Shield design={ICON_FIELD(d)} shape={shape} size={30} label={null} />
             <span class="choice-label">{capitalise(DIVISION_LABEL[d].term)}</span>
@@ -248,23 +330,52 @@ export function FieldStep({ design, shape, onChange, onBadge, notice, issues, ac
         <>
           <FieldPartPicker design={design} part={0} legend={division ? DIVISION_PART_LABEL[division][0] : 'Background colour'} onChange={onChange} />
           {division && <FieldPartPicker design={design} part={1} legend={DIVISION_PART_LABEL[division][1]} onChange={onChange} />}
+          {division && partCount(division) === 3 && <FieldPartPicker design={design} part={2} legend={DIVISION_PART_LABEL[division][2]} onChange={onChange} />}
         </>
       )}
+      {design.kind === 'arms' && <FieldEdges design={design} division={division} shape={shape} onChange={onChange} />}
       {design.kind === 'arms' && <FieldMore design={design} division={division} onChange={onChange} />}
     </Step>
   );
 }
 
+/** The line of a band in words ("embattled counter-embattled", "wavy on the lower edge"); empty for a straight one. */
+export function ordinaryLineWords(item: Extract<Design['groups'][number]['item'], { k: 'ordinary' }>): string {
+  return lineWords(ordinaryEdgeHost(item), item.lines);
+}
+
 function ordinarySummary(design: Design): string {
   const path = ordinaryPath(design);
   const item = path && groupAt(design, path).item;
-  return path && item?.k === 'ordinary' ? `${ORDINARY_LABEL[item.type].plain}, ${colourWords(design, path)}` : 'None';
+  return path && item?.k === 'ordinary' ? [ORDINARY_LABEL[item.type].plain, ordinaryShapeWords(design, path), outlineWords(design, path), ordinaryLineWords(item), colourWords(design, path)].filter(Boolean).join(', ') : 'None';
+}
+
+/** The outline of a band in everyday words ("edged in gold", "doubly cotised in silver"); empty when it has none. */
+function outlineWords(design: Design, path: GroupPath): string {
+  const outline = outlineAt(design, path);
+  if (outline === 'none') return '';
+  const tincture = outlineTinctureOf(design, path);
+  const name = outline === 'fimbriated' ? 'edged' : OUTLINE_LABEL[outline].term;
+  return tincture ? `${name} in ${lower(TINCTURE_LABEL[tincture].plain)}` : name;
+}
+
+/** The number, shape toggles and position of the band or shape at `path` in everyday words ("upside down, raised", "double", "three, thin"); empty when it has none. */
+export function ordinaryShapeWords(design: Design, path: GroupPath): string {
+  const { item, count } = groupAt(design, path);
+  if (item.k !== 'ordinary') return '';
+  const number = ORDINARY_COUNTS[item.type]?.includes(count) ? [ordinaryCountLabel(item.type, count).plain.toLowerCase()] : [];
+  const toggles = SHAPE_TOGGLES.filter((t) => toggledOn(design, path, t)).map((t) => SHAPE_TOGGLE_LABEL[t].plain.toLowerCase());
+  const position = bandPositionOf(design, path);
+  const moved = position === 'middle' ? [] : [BAND_POSITION_LABEL[position].plain.toLowerCase()];
+  return [...number, ...toggles, ...moved].join(', ');
 }
 
 export function OrdinaryStep({ design, shape, onChange, issues, accordion }: ShapedStepProps) {
   const path = ordinaryPath(design);
   const item = path && groupAt(design, path).item;
   const type = item?.k === 'ordinary' ? item.type : null;
+  // the tile that picks it (the pall inverted is the pall's)
+  const tile = type && (TILE_OF[type] ?? type);
   return (
     <Step n={2} title="Band or shape" term="ordinary" hint="A bold band, border or shape. You need this or a picture (or both)." summary={ordinarySummary(design)} issues={issues} accordion={accordion} testid="step-ordinary" remove={null}>
       <RadioGroup label="Ordinary" class="icon-grid icon-grid-ordinary" testid="ordinary-select">
@@ -272,8 +383,8 @@ export function OrdinaryStep({ design, shape, onChange, issues, accordion }: Sha
           <NoneIcon />
           <span class="choice-label">None</span>
         </ChoiceButton>
-        {DRAWN_ORDINARIES.map((t) => (
-          <ChoiceButton key={t} testid={`ordinary-${t}`} checked={type === t} label={nameOf(ORDINARY_LABEL[t])} title={ORDINARY_LABEL[t].plain} onSelect={() => onChange(setOrdinary(design, t))} onBlocked={never} class="icon-choice">
+        {BUILDER_ORDINARIES.map((t) => (
+          <ChoiceButton key={t} testid={`ordinary-${t}`} checked={tile === t} label={nameOf(ORDINARY_LABEL[t])} title={ORDINARY_LABEL[t].plain} onSelect={() => onChange(setOrdinary(design, t))} onBlocked={never} class="icon-choice">
             <Shield design={ICON_ORDINARY(t)} shape={shape} size={30} label={null} />
             <span class="choice-label">{capitalise(ORDINARY_LABEL[t].term)}</span>
           </ChoiceButton>
@@ -282,6 +393,24 @@ export function OrdinaryStep({ design, shape, onChange, issues, accordion }: Sha
       {path && type && (
         <PaintPicker design={design} path={path} group="ordinary" testid="ordinary-tincture" noun={lower(ORDINARY_LABEL[type].plain)} onChange={onChange} />
       )}
+      <MoreShapes testid="ordinary" summary="More shapes and edges…" used={(tile !== null && MORE_ORDINARIES.includes(tile)) || (path !== null && usesShapeControls(design, path))}>
+        {() => (
+          <>
+            <p class="picker-legend">More shapes</p>
+            <RadioGroup label="More shapes" class="icon-grid icon-grid-ordinary" testid="ordinary-more-select">
+              {MORE_ORDINARIES.map((t) => (
+                <ChoiceButton key={t} testid={`ordinary-${t}`} checked={tile === t} label={nameOf(ORDINARY_LABEL[t])} title={ORDINARY_LABEL[t].plain} onSelect={() => onChange(setOrdinary(design, t))} onBlocked={never} class="icon-choice">
+                  <Shield design={ICON_ORDINARY(t)} shape={shape} size={30} label={null} />
+                  <span class="choice-label">{capitalise(ORDINARY_LABEL[t].term)}</span>
+                </ChoiceButton>
+              ))}
+            </RadioGroup>
+            {path && type && hasShapeControls(design, path) && (
+              <OrdinaryShapeControls design={design} path={path} testid="ordinary" noun={`the ${lower(ORDINARY_LABEL[type].plain)}`} shape={shape} onChange={onChange} />
+            )}
+          </>
+        )}
+      </MoreShapes>
     </Step>
   );
 }

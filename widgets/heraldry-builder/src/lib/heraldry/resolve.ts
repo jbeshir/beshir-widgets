@@ -18,7 +18,8 @@ import {
   type Lines, type Modifier, type Ordinary, type Paint, type PartPaint, type Position, type Relation, type Role,
 } from './design';
 import { isDivision, isTreatment, isVariation, partCount } from './divisions';
-import { isLine, isOrdinaryMod, isOrdinaryType, ORDINARY_KIND, type OrdinaryMod } from './ordinaries';
+import { isOrdinaryMod, isOrdinaryType, ORDINARY_KIND, ORDINARY_NAME, type OrdinaryMod, type OrdinaryType } from './ordinaries';
+import { bareLines, edgeCount, isLine, ordinaryEdgeHost, type EdgeHost } from './lines';
 import { contextOf, defaultLayoutOf, halfLayouts, inForcedPart, isHalfPosition, isSecondaryPosition, layoutOfKey, shareTotal, type Layout } from './arrangement';
 
 export type ResolveResult = { ok: true; design: Design } | { ok: false; errors: Issue[] };
@@ -57,13 +58,18 @@ const oneOf = <T extends string>(list: readonly T[], v: unknown): v is T => type
 
 // ── Paint ───────────────────────────────────────────────────────────────────
 
-function parseLines(v: unknown, at: IssueAt, E: Errors): Lines | null {
+/** The lines of a host: absent is plain; `{a}` alone is the bare line's meaning on the host ("a fess embattled" is its upper edge); `{a, b}` as given. */
+function parseLines(v: unknown, host: EdgeHost, at: IssueAt, E: Errors): Lines | null {
   if (v === undefined) return { ...PLAIN_LINES };
   const o = asObject(v);
   if (!o) return E.add(at, '"lines" must be an object with the line "a" and optionally "b".');
   const bad = E.unknownKeys(o, ['a', 'b'], at, 'lines');
   if (!isLine(o.a) || (o.b !== undefined && !isLine(o.b))) return E.add(at, 'Unknown line of partition.');
-  return bad ? null : { a: o.a, b: o.b ?? o.a };
+  const lines = o.b === undefined ? bareLines(host, o.a) : { a: o.a, b: o.b };
+  const edges = edgeCount(host);
+  if (edges === 0 && (lines.a !== 'plain' || lines.b !== 'plain')) return E.add(at, 'This element takes no line of partition.');
+  if (edges === 1 && lines.a !== lines.b) return E.add(at, 'This element has one line, so "b" must equal "a".');
+  return bad ? null : lines;
 }
 
 function parsePieces(v: unknown, at: IssueAt, E: Errors): number | null | undefined {
@@ -108,9 +114,9 @@ function parsePaint(v: unknown, at: IssueAt, E: Errors, inField: boolean, depth 
     }
     case 'divided': {
       const bad = E.unknownKeys(o, ['k', 'division', 'lines', 'pieces', 'parts'], at, 'paint');
-      const lines = parseLines(o.lines, at, E);
       const pieces = parsePieces(o.pieces, at, E);
       if (!isDivision(o.division)) return E.add(at, 'Unknown division.');
+      const lines = parseLines(o.lines, { k: 'division', division: o.division }, at, E);
       const n = partCount(o.division);
       if (!Array.isArray(o.parts) || o.parts.length !== n) return E.add(at, `A divided paint needs exactly ${n} parts.`);
       const parts = all(o.parts.map(sub));
@@ -118,9 +124,9 @@ function parsePaint(v: unknown, at: IssueAt, E: Errors, inField: boolean, depth 
     }
     case 'variation': {
       const bad = E.unknownKeys(o, ['k', 'variation', 'lines', 'pieces', 'parts'], at, 'paint');
-      const lines = parseLines(o.lines, at, E);
       const pieces = parsePieces(o.pieces, at, E);
       if (!isVariation(o.variation)) return E.add(at, 'Unknown variation.');
+      const lines = parseLines(o.lines, { k: 'variation', variation: o.variation }, at, E);
       if (!Array.isArray(o.parts) || o.parts.length !== 2) return E.add(at, 'A varied paint needs exactly 2 parts.');
       const parts = all(o.parts.map(sub));
       return !bad && lines && pieces !== undefined && parts ? { k: 'variation', variation: o.variation, lines, pieces, parts: [parts[0], parts[1]] } : null;
@@ -154,14 +160,32 @@ function parsePaint(v: unknown, at: IssueAt, E: Errors, inField: boolean, depth 
 
 // ── Items ───────────────────────────────────────────────────────────────────
 
+/**
+ * Why an ordinary's treatments can't go together, or null: shortened and reaching the edges, raised and lowered, reaching the edges and
+ * raised or lowered contradict each other; a cross, saltire, pall, label or fret reaches the edges already (RULES-C §D.2).
+ */
+export function modsClash(type: OrdinaryType, mods: readonly OrdinaryMod[]): string | null {
+  const has = (m: OrdinaryMod) => mods.includes(m);
+  if (has('couped') && has('throughout')) return 'An ordinary can\'t be both couped and throughout.';
+  if (has('enhanced') && has('abased')) return 'An ordinary can\'t be both enhanced and abased.';
+  if (has('throughout') && (has('enhanced') || has('abased'))) return 'An ordinary throughout reaches the edge, so it can\'t be enhanced or abased too.';
+  if (has('throughout') && THROUGHOUT_ALREADY.includes(type)) return `A ${ORDINARY_NAME[type]} is throughout already.`;
+  return null;
+}
+
+/** The ordinaries that reach the edges of the field by default. */
+const THROUGHOUT_ALREADY: readonly OrdinaryType[] = ['cross', 'saltire', 'pall', 'pall-inverted', 'label', 'fret'];
+
 function parseOrdinary(o: Record<string, unknown>, at: IssueAt, E: Errors, depth: number): Ordinary | null {
   const bad = E.unknownKeys(o, ['k', 'type', 'lines', 'mods', 'cotised', 'fimbriated'], at, 'ordinary');
   if (!isOrdinaryType(o.type)) return E.add(at, 'Unknown ordinary.');
-  const lines = parseLines(o.lines, at, E);
   let mods: OrdinaryMod[] | null = [];
   if (o.mods !== undefined) {
     mods = Array.isArray(o.mods) && o.mods.every(isOrdinaryMod) ? [...new Set<OrdinaryMod>(o.mods)] : E.add(at, 'Unknown ordinary modifier.');
   }
+  const clash = mods && modsClash(o.type, mods);
+  if (clash) mods = E.add(at, clash);
+  const lines = parseLines(o.lines, ordinaryEdgeHost({ type: o.type, mods: mods ?? [] }), at, E);
   let cotised: Cotises | null | undefined = null;
   if (o.cotised !== undefined && o.cotised !== null) {
     const c = asObject(o.cotised);
@@ -169,7 +193,8 @@ function parseOrdinary(o: Record<string, unknown>, at: IssueAt, E: Errors, depth
     const paint = c && parsePaint(c.paint, at, E, false, depth + 1);
     if (!c || (c.count !== 1 && c.count !== 2 && c.count !== 3)) E.add(at, 'Cotises come in ones, twos or threes.');
     else if (c.line !== undefined && !isLine(c.line)) E.add(at, 'Unknown line of partition.');
-    else cotised = paint && !badCotises ? { count: c.count, paint, line: c.line ?? 'plain' } : undefined;
+    // Cotises follow the ordinary's line unless they are given one of their own (RULES-C §B.4, §D.5: "a bend wavy cotised" has wavy cotises).
+    else cotised = paint && lines && !badCotises ? { count: c.count, paint, line: c.line ?? lines.a } : undefined;
     if (cotised === null) cotised = undefined;
   }
   let fimbriated: Paint | null | undefined = null;
@@ -336,14 +361,14 @@ function parseGroup(v: unknown, path: GroupPath, top: boolean, E: Errors): RawGr
 
 /**
  * The role a top-level group has when the input names none (RULES §B.3, SENA App I1): charges beside a central ordinary
- * are secondary, and so are charges in chief, in base or in canton beside a central group of charges — "if you removed
+ * are secondary (unless the input sets the ordinary beside them: "a fleur-de-lys between two pallets"), and so are charges in chief, in base or in canton beside a central group of charges — "if you removed
  * the fess the lions would become the primary charge group". Charges in chief with nothing central are primary. A group
  * the input relates to the main one ("between": a lion between three mullets) is secondary.
  */
 function inferRole(r: RawGroup, siblings: readonly RawGroup[]): Role {
-  if (r.item.k === 'ordinary') return ORDINARY_KIND[r.item.type] === 'peripheral' ? 'peripheral' : 'primary';
+  if (r.item.k === 'ordinary') return ORDINARY_KIND[r.item.type] === 'central' ? 'primary' : 'peripheral';
   if (r.relation !== null) return 'secondary';
-  if (siblings.some((s) => s.item.k === 'ordinary' && ORDINARY_KIND[s.item.type] === 'central' && s.role !== 'overall')) return 'secondary';
+  if (siblings.some((s) => s.item.k === 'ordinary' && ORDINARY_KIND[s.item.type] === 'central' && s.role !== 'overall' && s.role !== 'secondary')) return 'secondary';
   const central = (s: RawGroup) => s !== r && s.item.k === 'charge' && s.position === null && s.relation === null && (s.role === null || s.role === 'primary');
   return isSecondaryPosition(r.position) && siblings.some(central) ? 'secondary' : 'primary';
 }

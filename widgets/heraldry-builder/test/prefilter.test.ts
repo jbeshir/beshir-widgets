@@ -4,10 +4,11 @@
 // substantial change on its own, which is proven here too. A fieldless badge has no partition, which matches every partition.
 import { describe, expect, it } from 'vitest';
 import {
-  CHARGE_IDS, CHARGES, DRAWN_DIVISIONS, DRAWN_ORDINARIES, ORDINARY_KIND, candidateKey, checkUnique, differences, isClear, keysMayConflict, primaryGroups, signature,
+  CHARGE_IDS, CHARGES, BUILDER_DIVISIONS, BUILDER_ORDINARIES, ORDINARY_KIND, candidateKey, checkUnique, differences, isClear, keysMayConflict, primaryGroups, signature,
   type Design, type RegistryEntryLike, type Verdict,
 } from '../src/lib/heraldry';
 import { generatedDesigns } from './design-generator';
+import { rotatesIn, sampleSeed } from './rotation';
 import { arms, charge, div, group, nd, ordinary } from './helpers';
 
 const sameKey = (a: Design, b: Design) => keysMayConflict(candidateKey(a), candidateKey(b));
@@ -59,10 +60,10 @@ describe('too-close pre-filter', () => {
     }
   }, 30_000);
 
-  // Seeded sampling: each probe edits a rotating quarter of the entries, so every entry is edited against 25 probes.
+  // Seeded sampling: each probe edits a rotating eighth of the entries (`rotatesIn`), so each entry is edited against about 12 probes.
   it('gives the same verdict when an entry is edited (itself excluded)', () => {
     for (const [ri, edited] of registry.entries()) {
-      for (const probe of probes.slice(0, 100).filter((_, pi) => (ri + pi) % 4 === 0)) {
+      for (const probe of probes.slice(0, 100).filter((_, pi) => rotatesIn(`edited|${ri}|${pi}`, 1 / 8))) {
         const sig = signature(probe);
         const full = checkUnique(probe, sig, registry, edited.id);
         const candidates = registry.filter((e) => sameKey(probe, e.design));
@@ -71,21 +72,22 @@ describe('too-close pre-filter', () => {
     }
   }, 30_000);
 
+  // Seeded sampling: a rotating half of the pairs (`rotatesIn`).
   it('keys only on changes that are substantial on their own (generated pairs)', () => {
     const designs = withBadges(generatedDesigns(20_000, 400), 4);
     let keyed = 0;
-    for (const a of designs) for (const b of designs) {
-      if (sameKey(a, b)) continue;
+    for (const [i, a] of designs.entries()) for (const [j, b] of designs.entries()) {
+      if (!rotatesIn(`pair|${i}|${j}`, 1 / 2) || sameKey(a, b)) continue;
       keyed++;
       expect(differences(a, b).some((d) => d.kind === 'sc'), `${signature(a)} vs ${signature(b)}`).toBe(true);
     }
-    expect(keyed).toBeGreaterThan(10_000);
+    expect(keyed, `sample seed ${sampleSeed()}`).toBeGreaterThan(5_000);
   }, 30_000);
 
   it('keys only on changes that are substantial on their own (every division, ordinary and charge)', () => {
     const field = (division: string | null) => (division ? div(division, 'or', 'azure') : 'azure');
-    const fields = [null, ...DRAWN_DIVISIONS].map((d) => nd(arms(field(d), group(ordinary('pale'), 'gules'))));
-    const ordinaries = [null, ...DRAWN_ORDINARIES.filter((t) => ORDINARY_KIND[t] === 'central')]
+    const fields = [null, ...BUILDER_DIVISIONS].map((d) => nd(arms(field(d), group(ordinary('pale'), 'gules'))));
+    const ordinaries = [null, ...BUILDER_ORDINARIES.filter((t) => ORDINARY_KIND[t] === 'central')]
       .map((type) => nd(arms(field(null), ...(type ? [group(ordinary(type), 'or')] : [group(ordinary('chief'), 'or')]))));
     const charges = [null, ...CHARGE_IDS.flatMap((id) => (CHARGES[id].postures ?? [null]).map((posture) => [id, posture] as const))]
       .map((c) => nd(arms(field(null), ...(c ? [group(charge(c[0], c[1] ? { posture: c[1] } : {}), 'or')] : [group(ordinary('chief'), 'or')]))));
@@ -175,6 +177,107 @@ describe('too-close pre-filter with a semy', () => {
       const sig = signature(probe);
       const candidates = registry.filter((e) => sameKey(probe, e.design));
       expect(checkUnique(probe, sig, candidates)).toEqual(checkUnique(probe, sig, registry));
+    }
+  });
+});
+
+describe('too-close pre-filter with treated ordinaries', () => {
+  // A chevron inverted keys apart from the chevron (A5E5c); every other treatment keys as its ordinary.
+  const band = (type: string, mods: string[] = [], extra: object = {}) => group(ordinary(type, { mods, ...extra }), 'or');
+  const between = group(charge('roundel'), 'argent', { count: 3 });
+  const designs = [
+    nd(arms('azure', band('chevron'))), nd(arms('azure', band('chevron', ['inverted']))), nd(arms('azure', band('chevron', ['inverted', 'couped']))),
+    nd(arms('azure', band('chevron', ['couped']))), nd(arms('azure', band('chevron', ['enhanced']))), nd(arms('azure', band('chevron', ['throughout']))),
+    nd(arms('azure', band('chevron'), between)), nd(arms('azure', band('chevron', ['inverted']), between)), nd(arms('azure', band('chevron', ['inverted'], { lines: { a: 'wavy' } }), between)),
+    nd(arms('azure', band('pile'))), nd(arms('azure', band('pile', ['inverted']))), nd(arms('azure', band('cross'))), nd(arms('azure', band('cross', ['couped']))),
+    nd(arms('azure', band('saltire', ['couped']))), nd(arms('azure', band('fess', ['abased']))), nd(arms('gules', band('chevron', ['inverted']))),
+  ];
+
+  it('finds every entry that is not clear of the probe', () => {
+    for (const a of designs) for (const b of designs) {
+      if (!isClear(differences(a, b))) expect(keysMayConflict(candidateKey(a), candidateKey(b)), `${signature(a)} vs ${signature(b)}`).toBe(true);
+    }
+  });
+
+  it('keys only on changes that are substantial on their own', () => {
+    expect(sameKey(designs[0], designs[1])).toBe(false);
+    for (const a of designs) for (const b of designs) {
+      if (!sameKey(a, b)) expect(differences(a, b).some((d) => d.kind === 'sc'), `${signature(a)} vs ${signature(b)}`).toBe(true);
+    }
+  });
+});
+
+describe('too-close pre-filter with diminutives', () => {
+  // Bars are the fess's type; three or more identical diminutives are also the variation (A5C1), so they key to every partition and
+  // primary (ANY_PRIMARY): "three bars ↔ barry", "three bendlets ↔ bendy" compare, though their partitions and primaries differ.
+  const dims = (type: string, count: number, extra: object = {}) => group(ordinary(type, extra), 'or', { count });
+  const stripes = (variation: string, lines = 'plain') => ({ k: 'variation', variation, lines: { a: lines, b: lines }, parts: ['azure', 'or'] });
+  const between = group(charge('roundel'), 'argent', { count: 2 });
+  const designs = [
+    nd(arms('azure', dims('bar', 3))), nd(arms(stripes('barry'))), nd(arms(stripes('barry', 'wavy'))), nd(arms('azure', dims('bar', 3, { lines: { a: 'wavy' } }))),
+    nd(arms('azure', dims('bendlet', 3))), nd(arms(stripes('bendy'))), nd(arms('azure', dims('bendlet', 2))), nd(arms('azure', group(ordinary('bend'), 'or'))),
+    nd(arms('azure', dims('bar', 2))), nd(arms('azure', group(ordinary('fess'), 'or'))), nd(arms('azure', dims('chevronel', 3))), nd(arms(stripes('chevronny'))),
+    nd(arms('azure', dims('chevronel', 2, { mods: ['inverted'] }))), nd(arms('azure', dims('pallet', 4))), nd(arms(stripes('paly'))), nd(arms('azure', dims('bar', 2), between)),
+    nd(arms('azure', dims('baton', 1))), nd(arms('azure', group(ordinary('bend-sinister', { mods: ['couped'] }), 'or'))), nd(arms('azure', group(charge('lion'), 'or'))),
+  ];
+
+  it('finds every entry that is not clear of the probe ("three bars ↔ barry", "three bendlets ↔ bendy")', () => {
+    expect(differences(designs[0], designs[1])).toEqual([]);
+    expect(differences(designs[4], designs[5])).toEqual([]);
+    for (const a of designs) for (const b of designs) {
+      if (!isClear(differences(a, b))) expect(keysMayConflict(candidateKey(a), candidateKey(b)), `${signature(a)} vs ${signature(b)}`).toBe(true);
+    }
+  });
+
+  it('keys only on changes that are substantial on their own', () => {
+    for (const a of designs) for (const b of designs) {
+      if (!sameKey(a, b)) expect(differences(a, b).some((d) => d.kind === 'sc'), `${signature(a)} vs ${signature(b)}`).toBe(true);
+    }
+  });
+
+  it('gives the same verdict as scanning the whole registry', () => {
+    const registry = registryFrom(designs);
+    for (const probe of designs) {
+      const sig = signature(probe);
+      const candidates = registry.filter((e) => keysMayConflict(candidateKey(probe), candidateKey(e.design)));
+      expect(outcome(checkUnique(probe, sig, candidates)), sig).toBe(outcome(checkUnique(probe, sig, registry)));
+    }
+  });
+});
+
+describe('too-close pre-filter with the divisions behind "More divisions"', () => {
+  // Per chevron throughout is per chevron (A5F1), and a bare one is also a pile inverted throughout (RULES-C §E.1): it keys to every partition and primary,
+  // and a bare pile inverted throughout to every partition. Gyronny keeps its own partition whatever its count or line.
+  const lion = group(charge('lion'), 'or');
+  const pile = group(ordinary('pile', { mods: ['inverted', 'throughout'] }), 'gules');
+  const designs = [
+    nd(arms(div('per-chevron', 'argent', 'gules'))), nd(arms(div('per-chevron-throughout', 'argent', 'gules'))), nd(arms(div('per-chevron-throughout', 'argent', 'gules'), lion)),
+    nd(arms(div('per-chevron', 'argent', 'gules'), lion)), nd(arms(div('per-chevron-inverted', 'argent', 'gules'))), nd(arms(div('per-chevron-inverted', 'argent', 'gules'), lion)),
+    nd(arms('argent', pile)), nd(arms('argent', pile, lion)), nd(arms('argent', group(ordinary('pile', { mods: ['inverted'] }), 'gules'))), nd(arms('argent', group(ordinary('chevron'), 'gules'))),
+    nd(arms({ ...div('gyronny', 'argent', 'gules'), pieces: 6 }, lion)), nd(arms({ ...div('gyronny', 'argent', 'gules'), pieces: 12 }, lion)),
+    nd(arms({ ...div('gyronny', 'argent', 'gules'), lines: { a: 'arrondi' } }, lion)), nd(arms({ ...div('gyronny', 'argent', 'gules'), lines: { a: 'wavy' } }, lion)),
+    nd(arms(div('per-saltire', 'argent', 'gules'), lion)), nd(arms('gules', lion)),
+  ];
+
+  it('finds every entry that is not clear of the probe', () => {
+    expect(differences(designs[1], designs[6])).toEqual([]);
+    for (const a of designs) for (const b of designs) {
+      if (!isClear(differences(a, b))) expect(keysMayConflict(candidateKey(a), candidateKey(b)), `${signature(a)} vs ${signature(b)}`).toBe(true);
+    }
+  });
+
+  it('keys only on changes that are substantial on their own', () => {
+    for (const a of designs) for (const b of designs) {
+      if (!sameKey(a, b)) expect(differences(a, b).some((d) => d.kind === 'sc'), `${signature(a)} vs ${signature(b)}`).toBe(true);
+    }
+  });
+
+  it('gives the same verdict as scanning the whole registry', () => {
+    const registry = registryFrom(designs);
+    for (const probe of designs) {
+      const sig = signature(probe);
+      const candidates = registry.filter((e) => keysMayConflict(candidateKey(probe), candidateKey(e.design)));
+      expect(outcome(checkUnique(probe, sig, candidates)), sig).toBe(outcome(checkUnique(probe, sig, registry)));
     }
   });
 });

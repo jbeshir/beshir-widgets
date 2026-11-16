@@ -3,16 +3,22 @@
 // Parsing untrusted input is resolve.ts; what the builder draws is support.ts.
 
 import { FUR_SPEC, TINCTURES, isTincture, type Stain, type Fur, type Tincture } from './tinctures';
-import { variationPieces, type Division, type Treatment, type Variation } from './divisions';
+import { divisionPieces, variationPieces, type Division, type Treatment, type Variation } from './divisions';
 import { canonicalFur, furColours } from './fur';
-import type { Line, OrdinaryMod, OrdinaryType } from './ordinaries';
+import type { OrdinaryMod, OrdinaryType } from './ordinaries';
+import { edgeCount, ordinaryEdgeHost, type EdgeHost, type Line } from './lines';
 import {
   CHARGES, HOLD_HOWS, MODIFIER_IDS, PART_IDS,
   type ChargeForm, type ChargeId, type Facing, type HoldHow, type ModifierId, type Orientation, type PartId, type Posture,
 } from './charges';
-import { ORDINARY_MODS, ORDINARY_NAME } from './ordinaries';
+import { DIMINUTIVE_OF, ORDINARY_MODS, ORDINARY_NAME, PERIPHERAL_ORDER, SAME_ORDINARY } from './ordinaries';
 
-/** Edge lines: `b` is the second edge of a two-edged element ("embattled on the upper edge"); resolved b === a unless given. */
+/**
+ * Edge lines, with blazon meaning (RULES-C §0; the edge table is lines.ts `edgeCount`): on a fess-, bend- or chevron-like band `a` is
+ * the upper edge and `b` the lower; on a pale or pallet dexter and sinister; on an orle or tressure outer and inner; on quarterly
+ * the per pale and the per fess line. Every other host has one line (`b` is `a`) or none (both plain). A bare line is read by
+ * `bareLines`: "a fess embattled" is `{embattled, plain}`.
+ */
 export interface Lines { a: Line; b: Line }
 
 export const PLAIN_LINES: Lines = Object.freeze({ a: 'plain', b: 'plain' });
@@ -313,8 +319,9 @@ export function groupTinctureOf(p: Paint): GroupTincture | null {
 
 // ── Canonical form ──────────────────────────────────────────────────────────
 
-function canonicalLines(l: Lines): Lines {
-  return { a: l.a, b: l.b };
+/** The lines in canonical form: a host with one line has `b = a`. */
+export function canonicalLines(host: EdgeHost, l: Lines): Lines {
+  return { a: l.a, b: edgeCount(host) === 1 ? l.a : l.b };
 }
 
 export function canonicalPaint(p: Paint): Paint {
@@ -323,9 +330,9 @@ export function canonicalPaint(p: Paint): Paint {
     case 'stain': return { k: 'stain', stain: p.stain };
     case 'fur': return canonicalFur(p);
     case 'divided':
-      return { k: 'divided', division: p.division, lines: canonicalLines(p.lines), pieces: p.pieces, parts: p.parts.map(canonicalPaint) };
+      return { k: 'divided', division: p.division, lines: canonicalLines({ k: 'division', division: p.division }, p.lines), pieces: divisionPieces(p.division, p.pieces), parts: p.parts.map(canonicalPaint) };
     case 'variation':
-      return { k: 'variation', variation: p.variation, lines: canonicalLines(p.lines), pieces: variationPieces(p.variation, p.pieces), parts: [canonicalPaint(p.parts[0]), canonicalPaint(p.parts[1])] };
+      return { k: 'variation', variation: p.variation, lines: canonicalLines({ k: 'variation', variation: p.variation }, p.lines), pieces: variationPieces(p.variation, p.pieces), parts: [canonicalPaint(p.parts[0]), canonicalPaint(p.parts[1])] };
     case 'treated': return { k: 'treated', treatment: p.treatment, ground: canonicalPaint(p.ground), ink: p.ink };
     case 'semy': return { k: 'semy', ground: canonicalPaint(p.ground), charge: { charge: p.charge.charge, form: p.charge.form }, ink: canonicalPaint(p.ink) };
     case 'proper': return { k: 'proper' };
@@ -359,29 +366,43 @@ function canonicalCharge(c: Charge): Charge {
   };
 }
 
-function canonicalItem(item: Item): Item {
+/**
+ * The type an ordinary group is drawn and blazoned as. A pall inverted is a type of its own: the pall with the mod is that type, so the two
+ * spellings are one design (and a pall inverted with the mod is the pall). A single tressure is an orle (RULES-C §C.3, Prec Gwynaeth 04/2004). Barrulets are bars (RULES-C §G.2). SCA armory
+ * uses no single diminutive as the main or overall band (RULES-C §C.2): one bar, pallet, bendlet (sinister) or chevronel `alone` is its ordinary,
+ * one saltorel a saltire couped (§D.2); a baton stays a type of its own.
+ */
+function canonicalOrdinary(item: Ordinary, count: number, alone: boolean): { type: OrdinaryType; mods: readonly OrdinaryMod[] } {
+  if (item.type === 'pall' && item.mods.includes('inverted')) return { type: 'pall-inverted', mods: item.mods.filter((m) => m !== 'inverted') };
+  if (item.type === 'pall-inverted' && item.mods.includes('inverted')) return { type: 'pall', mods: item.mods.filter((m) => m !== 'inverted') };
+  if (item.type === 'tressure' && count === 1) return { type: 'orle', mods: item.mods };
+  const type = SAME_ORDINARY[item.type] ?? item.type;
+  if (!alone || count !== 1 || type === 'baton' || !DIMINUTIVE_OF[type]) return { type, mods: item.mods };
+  return type === 'saltorel' ? { type: 'saltire', mods: [...new Set<OrdinaryMod>([...item.mods, 'couped'])] } : { type: DIMINUTIVE_OF[type], mods: item.mods };
+}
+
+function canonicalItem(item: Item, count: number, alone: boolean): Item {
   if (item.k === 'charge') return canonicalCharge(item);
+  const { type, mods } = canonicalOrdinary(item, count, alone);
   return {
-    k: 'ordinary', type: item.type, lines: canonicalLines(item.lines),
-    mods: sortedBy(item.mods, (m) => ORDINARY_MODS.indexOf(m)),
+    k: 'ordinary', type, lines: canonicalLines(ordinaryEdgeHost({ type, mods }), item.lines),
+    mods: sortedBy(mods, (m) => ORDINARY_MODS.indexOf(m)),
     cotised: item.cotised && { count: item.cotised.count, paint: canonicalPaint(item.cotised.paint), line: item.cotised.line },
     fimbriated: item.fimbriated && canonicalPaint(item.fimbriated),
   };
 }
 
-/** The order of a chief and a bordure among the peripherals: the chief first, so the bordure is painted over it (SENA App M1l). */
-const PERIPHERAL_ORDER = ['ordinary:chief', 'ordinary:bordure'];
-
 function groupOrder(g: Group): string {
-  const peripheral = g.role === 'peripheral' ? PERIPHERAL_ORDER.indexOf(itemKey(g.item)) : -1;
+  // Peripheral ordinaries in their paint order (the bordure over the chief, SENA App M1l; the canton over both).
+  const peripheral = g.role === 'peripheral' && g.item.k === 'ordinary' ? PERIPHERAL_ORDER.indexOf(g.item.type) : -1;
   // Primary charges keep the order they were written in: the first of two stands first (to dexter, or above).
   const key = g.role === 'primary' && g.item.k === 'charge' ? 'charge' : itemKey(g.item);
-  return `${ROLE_ORDER.indexOf(g.role)}${peripheral >= 0 ? `0${peripheral}` : `1${key}`}`;
+  return `${ROLE_ORDER.indexOf(g.role)}${peripheral >= 0 ? `0${String(peripheral).padStart(2, '0')}` : `1${key}`}`;
 }
 
 function canonicalGroups(groups: readonly Group[]): Group[] {
   const rebuilt = groups.map((g): Group => ({
-    role: g.role, relation: g.relation, item: canonicalItem(g.item), count: g.count,
+    role: g.role, relation: g.relation, item: canonicalItem(g.item, g.count, g.role === 'primary' || g.role === 'overall'), count: g.count,
     arrangement: canonicalArrangement(g.arrangement), position: g.position, paint: canonicalPaint(g.paint),
     charged: canonicalGroups(g.charged),
   }));
@@ -421,8 +442,11 @@ export type CountLimit = 'host' | 'around' | 'around-primary';
 /** Why a tincture issue: the colours fail the rule of tincture, or counterchanged isn't available for the group. */
 export type TinctureReason = 'contrast' | 'counterchange-unavailable';
 
-/** Which structure rule an issue breaks: the field's tinctures, a fur's colours (`fur`), a treatment whose ink doesn't contrast with its tincture (`treatment`), a band or picture divided or varied the wrong way (`divided-paint`), how groups relate, one charge type in two groups on the field, a layout the count doesn't have, no room at a size that reads, a chief with nothing across the line, a group overall that breaks SENA App I4, a badge's single main charge (`badge`, SENA A3A2: bands, borders, groups of several charges and split display shapes are not fieldless armory). */
-export type StructureRule = 'field' | 'fur' | 'treatment' | 'divided-paint' | 'relation' | 'same-type' | 'layout' | 'capacity' | 'crosses-line' | 'overall' | 'badge';
+/** Which part of a group (or of the field's paint) a tincture issue is about: the group itself, an ordinary's fimbriation or cotises, or the charges of a semy. */
+export type TincturePart = 'body' | 'fimbriation' | 'cotises' | 'strewn';
+
+/** Which structure rule an issue breaks: the field's tinctures, a fur's colours (`fur`), a treatment whose ink doesn't contrast with its tincture (`treatment`), a band or picture divided or varied the wrong way (`divided-paint`), how groups relate, one charge type in two groups on the field, a layout the count doesn't have, no room at a size that reads, a chief with nothing across the line, a group overall that breaks SENA App I4, a badge's single main charge (`badge`, SENA A3A2: bands, borders, groups of several charges and split display shapes are not fieldless armory), a dexter or sinister point (`side-point`: never registered, RULES-C §C.3, L21). */
+export type StructureRule = 'field' | 'fur' | 'treatment' | 'divided-paint' | 'relation' | 'same-type' | 'layout' | 'capacity' | 'crosses-line' | 'overall' | 'badge' | 'line' | 'core-practice' | 'ordinary-treatment' | 'side-point';
 
 /**
  * shape       — malformed input (unknown key/id, wrong type)
@@ -433,7 +457,7 @@ export type StructureRule = 'field' | 'fur' | 'treatment' | 'divided-paint' | 'r
  */
 export type Issue =
   | { code: 'shape' | 'generic'; at: IssueAt; message: string; slots: number[] }
-  | { code: 'tincture'; reason: TinctureReason; at: IssueAt; message: string; slots: number[] }
+  | { code: 'tincture'; reason: TinctureReason; part: TincturePart; at: IssueAt; message: string; slots: number[] }
   | { code: 'structure'; rule: StructureRule; at: IssueAt; message: string; slots: number[] }
   | { code: 'unsupported'; at: IssueAt; message: string; gap: Gap; limit: CountLimit | null };
 export type UnsupportedIssue = Extract<Issue, { code: 'unsupported' }>;

@@ -1,5 +1,5 @@
 // Radio-style option buttons shared by the builder's icon grids and segmented controls.
-// A RadioGroup keeps exactly one option tabbable (the checked one, else the first) and moves focus
+// A RadioGroup keeps exactly one option tabbable (the checked one, else the first allowed one) and moves focus
 // with the arrow keys, selecting allowed options as it goes. Blocked options stay focusable and
 // visible; activating one explains it instead of applying it. An option that changes something else
 // too says so in its accessible description and shows a small arrows mark.
@@ -22,7 +22,7 @@ export function RadioGroup({ label, describedBy, testid, class: cls, children }:
 
   useLayoutEffect(() => {
     const items = Array.from(ref.current?.querySelectorAll<HTMLElement>('[role=radio]') ?? []);
-    const checked = items.find((el) => el.getAttribute('aria-checked') === 'true') ?? items[0];
+    const checked = items.find((el) => el.getAttribute('aria-checked') === 'true') ?? items.find((el) => el.getAttribute('aria-disabled') !== 'true') ?? items[0];
     for (const el of items) el.tabIndex = el === checked ? 0 : -1;
   });
 
@@ -66,10 +66,12 @@ interface ChoiceProps {
   onSelect: () => void;
   onBlocked: (e: Explanation) => void;
   class?: string;
+  /** A toggle (aria-pressed), selected again to turn it off, rather than one option of a radio group. */
+  toggle?: boolean;
   children: ComponentChildren;
 }
 
-export function ChoiceButton({ testid, checked, status = OPEN, label, title, kind = 'structure', onSelect, onBlocked, class: cls, children }: ChoiceProps) {
+export function ChoiceButton({ testid, checked, status = OPEN, label, title, kind = 'structure', onSelect, onBlocked, class: cls, toggle = false, children }: ChoiceProps) {
   const blocked = status.kind === 'blocked';
   const described = status.kind === 'blocked' ? status.reason : status.kind === 'with-change' ? status.note : null;
   // testid on a role-less wrapper box so test drivers can click blocked (aria-disabled) options.
@@ -77,8 +79,9 @@ export function ChoiceButton({ testid, checked, status = OPEN, label, title, kin
     <span class={`option-wrap${cls ? ` wrap-${cls.split(' ')[0]}` : ''}`} data-testid={testid} data-blocked={blocked ? 'true' : undefined} data-with-change={status.kind === 'with-change' ? 'true' : undefined}>
     <button
       type="button"
-      role="radio"
-      aria-checked={checked ? 'true' : 'false'}
+      role={toggle ? undefined : 'radio'}
+      aria-checked={toggle ? undefined : checked ? 'true' : 'false'}
+      aria-pressed={toggle ? (checked ? 'true' : 'false') : undefined}
       aria-disabled={blocked ? 'true' : undefined}
       aria-label={blocked ? `${label}, not available` : label}
       title={title}
@@ -88,7 +91,7 @@ export function ChoiceButton({ testid, checked, status = OPEN, label, title, kin
       class={`choice${checked ? ' is-checked' : ''}${blocked ? ' is-blocked' : ''}${cls ? ` ${cls}` : ''}`}
       onClick={(e) => {
         if (status.kind === 'blocked') onBlocked({ anchor: e.currentTarget as HTMLElement, kind, title: `${label} isn't available`, reason: status.reason });
-        else if (!checked) onSelect();
+        else if (toggle || !checked) onSelect();
       }}
     >
       {children}

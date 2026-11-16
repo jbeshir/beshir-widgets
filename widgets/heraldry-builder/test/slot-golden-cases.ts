@@ -2,7 +2,7 @@
 // refactor of the engine is provably neutral. A combination with no layout (no slots) is not pinned: drawing one where there was
 // none shows up as a new key. The fixture is test/fixtures/slot-golden.json; `GOLDEN_REASON="…" npm run golden:write` regenerates it.
 import {
-  FIELD_SHAPES, ROW_PATTERNS, contextSlots, fieldContext, layoutKey, layoutOfKey, type LayoutContext, type OrdinaryType, type Slot,
+  FIELD_SHAPES, ROW_PATTERNS, contextSlots, fieldContext, layoutKey, layoutOfKey, plainSpec, type LayoutContext, type OrdinaryType, type Slot,
 } from '../src/lib/heraldry';
 import { hash } from './golden';
 
@@ -13,8 +13,8 @@ const FIELD_LAYOUTS: readonly string[] = [
   'crossed', 'pair-combattant', 'host', ...ROW_PATTERNS.map((r) => `rows-${r.join('-')}`),
 ];
 const HOST_LAYOUTS: readonly string[] = ['host', 'single'];
-const BETWEEN: readonly OrdinaryType[] = ['fess', 'pale', 'bend', 'bend-sinister', 'chevron', 'cross', 'saltire', 'pile'];
-const ON: readonly OrdinaryType[] = ['fess', 'pale', 'bend', 'bend-sinister', 'chevron', 'chief', 'cross', 'saltire', 'pile'];
+const BETWEEN: readonly OrdinaryType[] = ['fess', 'pale', 'bend', 'bend-sinister', 'chevron', 'cross', 'saltire', 'pile', 'pall', 'pall-inverted'];
+const ON: readonly OrdinaryType[] = ['fess', 'pale', 'bend', 'bend-sinister', 'chevron', 'chief', 'cross', 'saltire', 'pile', 'pall', 'pall-inverted'];
 
 const FIELD_PERIPHERALS = ['none', 'chief', 'bordure'] as const;
 
@@ -24,8 +24,8 @@ const GOLDEN_CONTEXTS: readonly GoldenContext[] = [
   ...FIELD_PERIPHERALS.map((peripheral): GoldenContext => ({
     key: `field-${peripheral}`, ctx: fieldContext(peripheral), layouts: FIELD_LAYOUTS,
   })),
-  ...BETWEEN.map((ordinary): GoldenContext => ({ key: `between-${ordinary}`, ctx: { k: 'between', ordinary, peripheral: 'none' }, layouts: HOST_LAYOUTS })),
-  ...ON.map((ordinary): GoldenContext => ({ key: `on-${ordinary}`, ctx: { k: 'on', ordinary, peripheral: 'none' }, layouts: HOST_LAYOUTS })),
+  ...BETWEEN.map((ordinary): GoldenContext => ({ key: `between-${ordinary}`, ctx: { k: 'between', ordinary: plainSpec(ordinary), peripheral: 'none', keepOut: [] }, layouts: HOST_LAYOUTS })),
+  ...ON.map((ordinary): GoldenContext => ({ key: `on-${ordinary}`, ctx: { k: 'on', ordinary: plainSpec(ordinary), peripheral: 'none', keepOut: [] }, layouts: HOST_LAYOUTS })),
 ];
 
 const round = (n: number) => Math.round(n * 1000) / 1000;

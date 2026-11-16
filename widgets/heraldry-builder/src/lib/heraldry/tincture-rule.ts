@@ -11,14 +11,16 @@ import { fieldSurfaces, surfaceOf, tinctureSurface, type Surface } from './surfa
 import { furName } from './fur';
 import { treatedName } from './treatment';
 import {
-  asParty, asSemy, asTreated, asVariation, fieldParts, fieldTinctures, groupAt, hostOf, itemName, notSupported, paintTinctures, primaryGroups, walkGroups, type Design, type Group, type GroupPath, type Issue, type IssueAt, type Item, type Paint,
+  PLAIN_LINES, asParty, asSemy, asTreated, asVariation, fieldParts, fieldTinctures, groupAt, hostOf, itemName, notSupported, paintTinctures, primaryGroups, walkGroups, type Design, type Group, type GroupPath, type Issue, type IssueAt, type Item, type Paint, type TincturePart,
 } from './design';
 import {
-  CANONICAL_SHAPE, fieldSurfaceAt, groundPoints, inFirstPart, inFirstPartTurned, ordinaryCentre, ordinarySamplePoints, shapeFrame, slotColumn, slotRow, type Pt, type Point, type Slot,
+  CANONICAL_SHAPE, fieldSurfaceAt, groundPoints, inFirstPartTurned, isFieldPaint, partIndexAt, shapeFrame, slotColumn, slotRow, type DividedField, type Pt, type Point, type Slot,
 } from './geometry';
+import { bandPlace, defaultOrdinaryFrame, ordinaryFrameOf, ordinaryGeometry, specOf, type OrdinaryFrame, type OrdinarySpec } from './ordinary-geometry';
 import { canonicalSlots, groupSlotCount } from './layout';
-import { ORDINARY_KIND, ORDINARY_NAME, type OrdinaryType } from './ordinaries';
-import { DIVISION_NAME, DRAWN_DIVISIONS, VARIATION_NAME, type Division, type Variation } from './divisions';
+import { ORDINARY_KIND, ORDINARY_NAME, familyOf, familyOfTreated, ordinaryWithArticle, type OrdinaryType } from './ordinaries';
+import { DIVISION_NAME, DRAWN_DIVISIONS, VARIATION_NAME, divisionPieces, partCount, type Division, type Variation } from './divisions';
+import { isStraightLine } from './lines';
 import { coPrimaries, forcedLayout, layoutContext } from './arrangement';
 
 export const FAILURE_TEXT: Record<ContrastFailure, string> = {
@@ -38,22 +40,39 @@ interface Samples { key: string; points: () => readonly Pt[] }
 
 const slotSamples = (s: Slot): Samples => ({ key: `${s.x},${s.y},${s.size}`, points: () => groundPoints(s) });
 
-/** Whether a paint is a tincture, a fur, a treated tincture or a strewn one: one thing over the part it fills. */
-const isOneThing = (p: Paint): boolean => p.k === 'tincture' || p.k === 'fur' || asTreated(p) !== null || asSemy(p) !== null;
+/** The frame an ordinary group of the design is drawn in, in the canonical layout: a peripheral's the whole shape, the others' above a base. */
+const frameOf = (d: Design, group: Group): OrdinaryFrame => (group.role === 'peripheral' ? defaultOrdinaryFrame(CANONICAL_SHAPE) : ordinaryFrameOf(d, CANONICAL_SHAPE));
 
-/** The share of each sample set in the first part of each division: it depends on the lines alone, not on the tinctures. */
-const firstShares = new Map<string, number>();
+/** The points an ordinary lies on in the canonical layout. */
+const ordinarySamples = (spec: OrdinarySpec, frame: OrdinaryFrame): Samples =>
+  ({ key: `ordinary:${JSON.stringify([spec, frame])}`, points: () => ordinaryGeometry(spec, frame).samples });
 
-function firstShare(division: Division, samples: Samples): number {
-  const key = `${division}|${samples.key}`;
-  let share = firstShares.get(key);
-  if (share === undefined) {
+/** The trims drawn with an ordinary's body, and what they are called in a message. */
+type Trim = Extract<TincturePart, 'fimbriation' | 'cotises'>;
+const TRIM_NOUN: Record<Trim, string> = { fimbriation: 'fimbriation', cotises: 'cotises' };
+
+/** The points an ordinary's trim lies on in the canonical layout. */
+const trimSamples = (spec: OrdinarySpec, frame: OrdinaryFrame, trim: Trim): Samples =>
+  ({ key: `${trim}:${JSON.stringify([spec, frame])}`, points: () => ordinaryGeometry(spec, frame)[trim]?.samples ?? [] });
+
+/** The points of an ordinary's cotises beside each edge of its body in the canonical layout (`OrdinaryTrim.pieces`), each a sample set of its own. */
+const cotisePieces = (spec: OrdinarySpec, frame: OrdinaryFrame): Samples[] =>
+  (ordinaryGeometry(spec, frame).cotises?.pieces ?? []).map((points, i) => ({ key: `cotise-${i}:${JSON.stringify([spec, frame])}`, points: () => points }));
+
+/** The share of each sample set in each part of each division, in part order: it depends on the lines alone, not on the tinctures. */
+const partShareCache = new Map<string, readonly number[]>();
+
+function partShares(f: DividedField, samples: Samples): readonly number[] {
+  const key = `${f.division}|${f.pieces}|${f.lines.a}|${f.lines.b}|${samples.key}`;
+  let shares = partShareCache.get(key);
+  if (shares === undefined) {
     const points = samples.points();
-    const { x, y } = shapeFrame(CANONICAL_SHAPE).fessPoint;
-    share = points.filter(([px, py]) => inFirstPart(division, { x, y }, px, py)).length / points.length;
-    firstShares.set(key, share);
+    const counts = f.paints.map(() => 0);
+    for (const [px, py] of points) counts[partIndexAt(f, CANONICAL_SHAPE, px, py)]++;
+    shares = counts.map((n) => n / points.length);
+    partShareCache.set(key, shares);
   }
-  return share;
+  return shares;
 }
 
 /** The share of the samples each field surface lies under, in the field's part order. */
@@ -61,15 +80,16 @@ function groundAt(field: Paint, samples: Samples, partOrder: readonly Surface[])
   // A variation is judged as a whole (A3B1): the one surface lies under everything.
   if (field.k === 'variation') return partOrder.map((surface) => ({ surface, share: 1 }));
   const counts = new Map<Surface, number>();
-  const [a, b] = field.k === 'divided' ? field.parts : [];
+  const paints = field.k === 'divided' ? field.parts.filter(isFieldPaint) : [];
   if (field.k !== 'divided') {
     // One paint all over: its surface lies under everything.
     counts.set(surfaceOf(field, null), 1);
-  } else if (field.parts.length === 2 && isOneThing(a) && isOneThing(b) && DRAWN_DIVISIONS.includes(field.division)) {
-    const first = firstShare(field.division, samples);
-    const [sa, sb] = [surfaceOf(a, null), surfaceOf(b, null)];
-    counts.set(sa, first);
-    counts.set(sb, (counts.get(sb) ?? 0) + 1 - first);
+  } else if (paints.length === field.parts.length && paints.length === partCount(field.division) && DRAWN_DIVISIONS.includes(field.division)) {
+    const shares = partShares({ k: 'divided', division: field.division, lines: field.lines, pieces: field.pieces, paints }, samples);
+    paints.forEach((p, i) => {
+      const surface = surfaceOf(p, null);
+      counts.set(surface, (counts.get(surface) ?? 0) + shares[i]);
+    });
   } else {
     const points = samples.points();
     for (const [x, y] of points) {
@@ -94,21 +114,68 @@ const ORDINARY_ON_LINE: Partial<Record<Division, OrdinaryType>> = {
   'per-chevron': 'chevron', quarterly: 'cross', 'per-saltire': 'saltire',
 };
 
+/**
+ * Whether an ordinary on the field lies over its division's line, half on each part (`ORDINARY_ON_LINE`): only while it is drawn with that line
+ * (a fess wavy on per fess wavy) and centred where the line runs, not moved into what a chief or base leaves.
+ */
+export function onDivisionLine(d: Design, group: Group): boolean {
+  if (d.kind !== 'arms' || d.field.k !== 'divided' || group.item.k !== 'ordinary' || group.role === 'tertiary') return false;
+  const spec = specOf(group), frame = frameOf(d, group);
+  return ORDINARY_ON_LINE[d.field.division] === spec.type && d.field.lines.a === spec.lines.a && d.field.lines.b === spec.lines.b
+    && bandPlace(spec, frame).centre.y === frame.centre.y;
+}
+
+/**
+ * The part of each division a chief lies on alone, though it is drawn over more: a per pall's chief part, which its arms leave
+ * the chief to (SENA A3B4a: "Per pall argent, gules, and azure, a chief sable" is fine "because the chief lies only on the argent part").
+ */
+const CHIEF_PART: Partial<Record<Division, number>> = { 'per-pall': 0 };
+
 /** The heater slots of a charge group, or none when it has no layout (the structure rules say so). */
 function slotsOf(d: Design, path: GroupPath): Slot[] {
   const slots = canonicalSlots(d, path);
   return slots.length === groupSlotCount(d, path) ? slots : [];
 }
 
+/** The divisions whose lines all meet at the fess point: charges set in cross about it stand on the lines. */
+const LINES_MEET_AT_FESS_POINT: readonly Division[] = ['quarterly', 'per-saltire', 'gyronny', 'per-pall', 'per-pall-inverted'];
+
+/** The fields divided in three whose lines meet at the fess point: a charge alone there "lies equally on all three portions" (SENA A3B4a). */
+const THREE_AT_FESS_POINT: readonly Division[] = ['per-pall', 'per-pall-inverted'];
+
+/** Whether a charge group is one charge alone in the centre of the field, judged at the fess point (`judgedSlots`). */
+const loneCentral = (group: Group): boolean => group.arrangement.k === 'single' && group.position === null;
+
 /**
- * Where a slot is judged: where it is drawn, except that a charge alone in the centre of the field is judged at the
- * fess point, its conceptual place, however far a chief pushes the drawing down (SENA A5C3: minor variation in
- * placement is artistic).
+ * Where the slots of a group are judged: where they are drawn, except at their conceptual place however the drawing moves them (SENA A5C3:
+ * minor variation in placement is artistic). A charge alone in the centre of the field is judged at the fess point, however far a chief
+ * pushes the drawing down; four charges in cross on a field whose lines meet at the fess point are judged about the fess point, on the
+ * lines, though the cross is drawn a little low to leave the base room (the College registers them so: 115232 "Gyronny arrondi azure and
+ * Or, in cross four pomegranates … gules", 2017; review R-4). Only a little: a cross that a chief, a charge in base or an orle moves
+ * further is judged where it is drawn, as it is seen (verify V-1).
  */
-function judgedSlot(group: Group, slot: Slot): Slot {
-  if (group.arrangement.k !== 'single' || group.position !== null) return slot;
+function judgedSlots(d: Design, group: Group, slots: readonly Slot[]): Slot[] {
+  const shift = inCrossShift(d, group, slots);
+  if (shift) return slots.map((s) => ({ ...s, x: s.x + shift.x, y: s.y + shift.y }));
   const { x, y } = shapeFrame(CANONICAL_SHAPE).fessPoint;
-  return { ...slot, x, y };
+  return loneCentral(group) ? slots.map((s) => ({ ...s, x, y })) : [...slots];
+}
+
+/** How far from the fess point four charges in cross may be drawn and still be judged about it: the plain drawing sits 5 low. */
+const IN_CROSS_SLACK = 6;
+
+/**
+ * The move that centres four charges in cross on the fess point, when they stand on the lines of a field whose lines all meet there and are
+ * drawn within `IN_CROSS_SLACK` of it (`judgedSlots`); null otherwise. Each is then judged against the lines drawn straight — an arrondi
+ * or wavy line bows the same way under all four, which would set each mostly on one part.
+ */
+function inCrossShift(d: Design, group: Group, slots: readonly Slot[]): Point | null {
+  const arr = group.arrangement;
+  if (!(arr.k === 'pattern' && arr.pattern === 'cross' && group.position === null && slots.length === 4
+    && d.kind === 'arms' && d.field.k === 'divided' && LINES_MEET_AT_FESS_POINT.includes(d.field.division))) return null;
+  const { x, y } = shapeFrame(CANONICAL_SHAPE).fessPoint;
+  const shift = { x: x - slots.reduce((a, s) => a + s.x, 0) / 4, y: y - slots.reduce((a, s) => a + s.y, 0) / 4 };
+  return Math.hypot(shift.x, shift.y) <= IN_CROSS_SLACK ? shift : null;
 }
 
 /**
@@ -138,11 +205,20 @@ export function groundShares(d: Design, path: GroupPath): Ground[] {
   }
   if (d.kind === 'badge') return [];
   if (group.item.k === 'ordinary') {
-    const type = group.item.type;
-    if (d.field.k === 'divided' && ORDINARY_ON_LINE[d.field.division] === type) return [parts.map((surface) => ({ surface, share: 1 / parts.length }))];
-    return [groundAt(d.field, { key: `ordinary:${type}`, points: () => ordinarySamplePoints(type) }, parts)];
+    const spec = specOf(group), frame = frameOf(d, group);
+    if (onDivisionLine(d, group)) return [parts.map((surface) => ({ surface, share: 1 / parts.length }))];
+    const chiefPart = spec.type === 'chief' && d.field.k === 'divided' ? CHIEF_PART[d.field.division] : undefined;
+    if (chiefPart !== undefined && d.field.k === 'divided') return [[{ surface: surfaceOf(d.field.parts[chiefPart], null), share: 1 }]];
+    return [groundAt(d.field, ordinarySamples(spec, frame), parts)];
   }
-  return slotsOf(d, path).map((s) => groundAt(d.field, slotSamples(judgedSlot(group, s)), parts));
+  // A charge alone where three parts meet lies on all three alike, however their shapes share out the slot it is drawn in (SENA A3B4a: "Per pall
+  // inverted argent, gules, and azure, a mullet sable … is considered color on color since the field is two-thirds color"; review R-2).
+  if (d.field.k === 'divided' && THREE_AT_FESS_POINT.includes(d.field.division) && loneCentral(group)) {
+    return slotsOf(d, path).map(() => parts.map((surface) => ({ surface, share: 1 / parts.length })));
+  }
+  const slots = slotsOf(d, path);
+  const field = inCrossShift(d, group, slots) ? { ...d.field, lines: PLAIN_LINES } : d.field;
+  return judgedSlots(d, group, slots).map((s) => groundAt(field, slotSamples(s), parts));
 }
 
 /**
@@ -160,13 +236,11 @@ function partGrounds(d: Design, path: GroupPath): Ground[][] | null {
     return points.length === 0 ? [] : groundAt(d.field, { key: `${samples.key}@${centre.x},${centre.y}/${turn}/${party.division}/${k}`, points: () => points }, surfaces);
   });
   if (group.item.k === 'ordinary') {
-    const type = group.item.type;
-    return [split({ key: `ordinary:${type}`, points: () => ordinarySamplePoints(type) }, ordinaryCentre(type, CANONICAL_SHAPE), 0)];
+    const spec = specOf(group);
+    const frame = frameOf(d, group);
+    return [split(ordinarySamples(spec, frame), ordinaryGeometry(spec, frame).centre, 0)];
   }
-  return slotsOf(d, path).map((s) => {
-    const judged = judgedSlot(group, s);
-    return split(slotSamples(judged), { x: judged.x, y: judged.y }, judged.rotation);
-  });
+  return judgedSlots(d, group, slotsOf(d, path)).map((judged) => split(slotSamples(judged), { x: judged.x, y: judged.y }, judged.rotation));
 }
 
 /** The tinctures each slot (or the ordinary) touches at all: `groundShares` without the shares. */
@@ -228,13 +302,13 @@ const ALONG_STRIPES: Partial<Record<Variation, readonly OrdinaryType[]>> = {
 function counterchangeOverVariation(group: Group, variation: Variation, noun: string, lie: string, them: string): string | null {
   const field = VARIATION_NAME[variation];
   const whole = `The ${noun} ${lie} across a ${field} field, and`;
-  if (group.item.k === 'charge') return `${whole} a charge can't be counterchanged over stripes or a grid — choose a tincture for ${them} (SENA CC-3).`;
+  if (group.item.k === 'charge' || group.item.type === 'fret') return `${whole} a ${noun} can't be counterchanged over stripes or a grid — choose a tincture for ${them} (SENA CC-3).`;
   const kind = ORDINARY_KIND[group.item.type];
   if (variation === 'pily') return group.item.type === 'chief' || group.item.type === 'bordure' ? null : `${whole} only a chief or a bordure can be counterchanged over pily.`;
   const along = ALONG_STRIPES[variation];
   if (!along) return `${whole} nothing can be counterchanged over a grid of that kind (SENA CC-2).`;
   if (kind !== 'central') return `${whole} a ${noun} can't be counterchanged over stripes — only a band across the middle can (SENA CC-9).`;
-  return along.includes(group.item.type) ? `${whole} it runs along the stripes, so counterchanged would only recolour one stripe (SENA CC-2).` : null;
+  return along.includes(familyOfTreated(group.item)) ? `${whole} it runs along the stripes, so counterchanged would only recolour one stripe (SENA CC-2).` : null;
 }
 
 /**
@@ -250,7 +324,27 @@ export function counterchangeUnavailable(d: Design, path: GroupPath): string | n
   if (host) {
     return `The ${nounOf(group)} ${lie} on the ${itemName(host.item)}, not on the field — counterchanged charges on a band or charge aren't available in this builder.`;
   }
+  // A fret is a charge, not an ordinary, and no charge is counterchanged over an ordinary (SENA CC-8, Grainne Dhonn 07/2008)
+  const under = group.item.k === 'ordinary' && group.item.type === 'fret' ? d.groups.find((g) => g.item.k === 'ordinary' && ORDINARY_KIND[g.item.type] === 'central' && g.item.type !== 'fret') : undefined;
+  if (under && under.item.k === 'ordinary') return `A fret can't be counterchanged over ${ordinaryWithArticle(under.item.type)}: a fret is a charge, and a charge can't be (SENA CC-8).`;
+  // Over a gyronny a central ordinary can't be counterchanged: a cross or saltire is returned (RULES-C §E.2; Wilhelm von Düsseldorf 01/2002, Maximillian 02/2007).
+  // A single charge (or a semy) can, and so can charges in annulo one to each gyron, which the College registers under SENA ("Gyronny sable and Or, eight
+  // roundels in annulo counterchanged", 103107, 2014; 120132, 2018; herald question L33, review R-7). A bordure or chief counterchanged is not refused
+  // (Primus 09/2005: only a complex line on one is case by case).
+  if (d.kind === 'arms' && d.field.k === 'divided' && d.field.division === 'gyronny') {
+    const pieces = divisionPieces('gyronny', d.field.pieces);
+    const onePerGyron = group.arrangement.k === 'pattern' && group.arrangement.pattern === 'annulo' && group.position === null && group.count === pieces;
+    if (group.item.k === 'ordinary' && ORDINARY_KIND[group.item.type] === 'central') {
+      return `The ${nounOf(group)} ${lie} across a gyronny field, and a band or cross can't be counterchanged over gyronny — choose a tincture for ${them} (RULES-C §E.2).`;
+    }
+    if (group.count > 1 && !onePerGyron) {
+      return `The ${nounOf(group)} ${lie} across a gyronny field, and only a single charge, or ${numberWord(pieces ?? 0)} in annulo, one to each gyron, can be counterchanged over gyronny — choose a tincture for ${them} (RULES-C §E.2, L33).`;
+    }
+  }
   const pair = fieldPair(d);
+  if (d.kind === 'arms' && d.field.k === 'divided' && partCount(d.field.division) === 3) {
+    return `Counterchanged swaps the two tinctures of a field divided in two: over a field divided in three there is no one other tincture for ${them} to take.`;
+  }
   if (pair === null && d.kind === 'arms' && d.field.k === 'divided') {
     return `Counterchanged swaps the two tinctures of a field divided in two, and a fur on the field can't be swapped in this builder.`;
   }
@@ -381,7 +475,7 @@ function forcedIntoOnePart(d: Design, path: GroupPath, failures: readonly (Contr
 }
 
 /** The divisions in two parts (A3B3a): a field or charge so divided has one line of division, not "more than one". */
-const TWO_PART_DIVISIONS: readonly Division[] = ['per-pale', 'per-fess', 'per-bend', 'per-bend-sinister', 'per-chevron', 'per-chevron-inverted'];
+export const TWO_PART_DIVISIONS: readonly Division[] = ['per-pale', 'per-fess', 'per-bend', 'per-bend-sinister', 'per-chevron', 'per-chevron-inverted', 'per-chevron-throughout'];
 
 /** Whether a paint is "multiply divided (that is, has more than one division)" (A3B4b): stripes or cells, vair or potent, quarterly and the like. */
 function multiplyDivided(p: Paint): boolean {
@@ -402,8 +496,10 @@ function sharedTinctureException(d: Design, group: Group): SharedTinctureExcepti
   const item = group.item;
   const shape = item.k === 'ordinary' || SIMPLE_GEOMETRIC.has(item.charge);
   const lattice = d.field.k === 'variation' && (d.field.variation === 'lozengy' || d.field.variation === 'fusily');
-  const bend = item.k === 'ordinary' && (item.type === 'bend' || item.type === 'bend-sinister');
-  return shape && multiplyDivided(d.field) !== multiplyDivided(group.paint) && !(lattice && bend) ? 'shape-on-multiply-divided' : 'none';
+  const bend = item.k === 'ordinary' && (familyOf(item.type) === 'bend' || familyOf(item.type) === 'bend-sinister');
+  // "whether the charge has a complex line" must stay identifiable too: not extended to an ordinary with one (RULES-C §B.6)
+  const lined = item.k === 'ordinary' && (!isStraightLine(item.lines.a) || !isStraightLine(item.lines.b));
+  return shape && !lined && multiplyDivided(d.field) !== multiplyDivided(group.paint) && !(lattice && bend) ? 'shape-on-multiply-divided' : 'none';
 }
 
 /** The issues of a charge group, one per run of failing slots that share a ground and a failure. */
@@ -417,7 +513,7 @@ function chargeIssues(d: Design, path: GroupPath, g: Group, host: Group | null, 
   const all = slots.map((_, i) => i);
   const exception = sharedTinctureException(d, g);
   const failures = grounds.map((ground, i) => (ground.length === 0 ? null : failureOf(g.paint, g.item, ground, pair, parts?.[i], exception)));
-  const issue = (message: string, idx: number[]): Issue => ({ code: 'tincture', reason: 'contrast', at, message, slots: idx });
+  const issue = (message: string, idx: number[]): Issue => ({ code: 'tincture', reason: 'contrast', part: 'body', at, message, slots: idx });
 
   if (g.paint.k === 'counterchanged' && pair) {
     // Every part shows the other field tincture over its own, so all the charges pass or fail together.
@@ -462,21 +558,73 @@ function chargeIssues(d: Design, path: GroupPath, g: Group, host: Group | null, 
   });
 }
 
-/** The rule-of-tincture violations of the group at `path` alone (and a charge group Table 7 forces into one part, a gap). */
+/** The rule-of-tincture violations of the group at `path` alone, its trims' included (and a charge group Table 7 forces into one part, a gap). */
 export function groupTinctureIssues(d: Design, path: GroupPath): Issue[] {
+  return [...groupBodyTinctureIssues(d, path), ...trimTinctureIssues(d, path)];
+}
+
+/** The violations of the group at `path` in its own paint: for an ordinary its body, not its fimbriation or cotises. */
+export function groupBodyTinctureIssues(d: Design, path: GroupPath): Issue[] {
   const group = groupAt(d, path), host = hostOf(d, path);
   const at = { k: 'group', path } as const;
   const unavailable = counterchangeUnavailable(d, path);
   if (unavailable) {
     const slots = group.item.k === 'charge' ? slotsOf(d, path).map((_, i) => i) : [];
-    return [{ code: 'tincture', reason: 'counterchange-unavailable', at, message: unavailable, slots }];
+    return [{ code: 'tincture', reason: 'counterchange-unavailable', part: 'body', at, message: unavailable, slots }];
   }
   const pair = fieldPair(d);
   const grounds = groundShares(d, path);
   if (group.item.k === 'charge') return chargeIssues(d, path, group, host, grounds, pair);
   if (d.kind !== 'arms') return [];
   const f = grounds[0].length === 0 ? null : failureOf(group.paint, group.item, grounds[0], pair, partGrounds(d, path)?.[0], sharedTinctureException(d, group));
-  return f ? [{ code: 'tincture', reason: 'contrast', at, message: ordinaryMessage(d, group, f, grounds[0], pair), slots: [] }] : [];
+  if (!group.item.fimbriated) return f ? [{ code: 'tincture', reason: 'contrast', part: 'body', at, message: ordinaryMessage(d, group, f, grounds[0], pair), slots: [] }] : [];
+  // Within its fimbriation an ordinary need not contrast with the field (GoT "Fimbriation"), but of the field's own tincture it reads as two thin bands.
+  const name = ORDINARY_NAME[group.item.type];
+  return f === 'same'
+    ? [{ code: 'tincture', reason: 'contrast', part: 'body', at, slots: [], message: `A fimbriated ${name} of the field's tincture reads as two thin bands — give the ${name} another tincture (RULES-C §D.4; Prec Odolf Liafwin, 05/2007).` }]
+    : [];
+}
+
+/** The violations of the fimbriation and the cotises of the ordinary at `path` against what they lie on. */
+export function trimTinctureIssues(d: Design, path: GroupPath): Issue[] {
+  const group = groupAt(d, path);
+  if (group.item.k !== 'ordinary' || d.kind !== 'arms') return [];
+  const pair = fieldPair(d);
+  const { fimbriated, cotised } = group.item;
+  return [
+    ...(fimbriated ? trimIssues(d, path, group, 'fimbriation', fimbriated, pair) : []),
+    ...(cotised ? trimIssues(d, path, group, 'cotises', cotised.paint, pair) : []),
+  ];
+}
+
+/** The issue of an ordinary's fimbriation or cotises that don't contrast with the field they lie on (RULES-C §D.4, §D.5: SENA A3B4a). */
+function trimIssues(d: Design, path: GroupPath, group: Group, trim: Trim, paint: Paint, pair: readonly [Tincture, Tincture] | null): Issue[] {
+  if (group.item.k !== 'ordinary' || d.kind !== 'arms') return [];
+  const at = { k: 'group', path } as const;
+  const what = `The ${TRIM_NOUN[trim]} of the ${ORDINARY_NAME[group.item.type]}`;
+  if (paint.k === 'counterchanged' && !pair) {
+    return [{ code: 'tincture', reason: 'counterchange-unavailable', part: trim, at, slots: [], message: `${what} can't be counterchanged: that needs a field divided in two tinctures.` }];
+  }
+  const samples = trimSamples(specOf(group), frameOf(d, group), trim);
+  if (samples.points().length === 0) return [];
+  const surfaces = fieldSurfaces(d);
+  const ground = groundAt(d.field, samples, surfaces);
+  const f = failureOf(paint, group.item, ground, pair, undefined, 'none');
+  const top = paint.k === 'tincture' ? paint.t : null;
+  if (!f) {
+    // Each cotise contrasts with what it lies on, the field's part on its own side, not with the field under all of them (SENA A3B4a; review R-3)
+    if (trim !== 'cotises' || paint.k === 'counterchanged') return [];
+    const failing = cotisePieces(specOf(group), frameOf(d, group)).flatMap((piece) => {
+      const g = groundAt(d.field, piece, surfaces), pf = failureOf(paint, group.item, g, pair, undefined, 'none');
+      return pf ? [{ f: pf, contacts: groundTinctures(g) }] : [];
+    });
+    if (failing.length === 0) return [];
+    const [{ f: pf, contacts }] = failing;
+    return [{ code: 'tincture', reason: 'contrast', part: trim, at, slots: [], message: `A cotise of the ${ORDINARY_NAME[group.item.type]} (${paintName(paint)}) lies ${whereText(pf, top, contacts, null)}: ${FAILURE_TEXT[pf]}` }];
+  }
+  const contacts = groundTinctures(ground);
+  const where = paint.k === 'counterchanged' && pair ? `on ${TINCTURE_NAME[pair[0]]} and ${TINCTURE_NAME[pair[1]]}` : whereText(f, top, contacts, null);
+  return [{ code: 'tincture', reason: 'contrast', part: trim, at, slots: [], message: `${what} (${paintName(paint)}) ${trim === 'cotises' ? 'lie' : 'lies'} ${where}: ${FAILURE_TEXT[f]}` }];
 }
 
 /** The issue of a semy whose charges don't stand out against the tincture they are strewn on (SENA A3B4a), or none for any other paint. */
@@ -485,7 +633,7 @@ export function semyIssues(p: Paint, at: IssueAt): Issue[] {
   const failure = semy && contrastFailure(semy.ink.t, [semy.ground.t]);
   if (!semy || !failure) return [];
   return [{
-    code: 'tincture', reason: 'contrast', at, slots: [],
+    code: 'tincture', reason: 'contrast', part: 'strewn', at, slots: [],
     message: `${capitalise(CHARGES[semy.charge.charge].plural)} ${TINCTURE_NAME[semy.ink.t]} strewn on ${TINCTURE_NAME[semy.ground.t]}: ${FAILURE_TEXT[failure]}`,
   }];
 }

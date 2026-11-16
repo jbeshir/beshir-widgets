@@ -6,7 +6,7 @@ widget served via Cloudflare Workers, with a registry API backed by Cloudflare D
 
 ## Overview
 
-- **Builder.** Pick a field (plain or one of seven divisions), an optional ordinary (ten) and an
+- **Builder.** Pick a field (plain or one of seven divisions, or seven more behind "More divisions and edges…"), an optional ordinary (ten) and an
   optional group of 1–12 charges (36 charges, 48 drawings with postures; counts above six sit
   behind **More…**). The default flow is three steps, Background → Band or shape → Picture (the Background step also has a **Badge** tile, "No background": see Fieldless badges); a
   further card appears for each layer added on demand from the "+ Add…" row (pictures on the band, a chief or a bordure,
@@ -48,7 +48,7 @@ code.
 
 Three tabs (`role=tablist`; arrow keys, Home and End move between them): **Design**, **Registry**, **Your arms**.
 
-**Design.** Above the builder sit a dismissable welcome strip, a small folding **Examples** box (example arms as small shields, each named by its caption in the accessible name and tooltip; open on a device's first visit, folded on later ones, remembered in `localStorage` and folded when storage is unavailable) and an always-visible **Surprise me** button. Loading an example or a surprise replaces the design with an Undo notice. The left column (sticky on wide screens while it fits the viewport) holds the live shield, a Hatching switch, the Shape picker (see Field shapes below), the blazon and plain-English gloss, the readability meter and the Check availability / Register… actions. The right column holds the builder: step 1 **Background** (field), step 2 **Band or shape** (ordinary) and step 3 **Picture** (charge: kind, count with **More…** above six, where it goes, layout, pose with the SCA's default marked, a **With a face (in splendour)** switch for the sun, colour). Under each colour picker sits one closed **More colours and patterns…** (`<picker>-more`) for everything beyond a plain colour: a row of kinds (`<picker>-mode-<split|fur|pattern|scatter|treatment|natural>`) — Split in two, Fur, Stripes and checks, Scatter (the background and bands), Brick or scales, Natural colours (pictures that have them) — and under it the options of the kind shown; it opens by itself while the paint is one of them. The background's has no split (the division tiles are that) and, on a divided background, a switch for which part (`field-more-part-1|2`). After the step cards a quiet **+ Add pictures around, on or above** button opens the layer chooser, in three small groups (*On it*, *Around or beside it*, *Across it*), each option named after what it goes with ("Around the lion", "On the band"); one that can't be added here is greyed and says why when pressed, pictures on a top bar or border are listed once there is one, and adding a layer closes the chooser and moves focus to its new card, which has a × in its heading that removes it. The layers: pictures on the band (a second group of pictures drawn on the band, top bar or border, with its own count, layout, pose and colour), **+ Add a top band (chief)** and **+ Add a border (bordure)** (a chief and a bordure beside the band, one of each, together with the pictures: the pictures are refitted to the room they leave, so a layer is offered only when something fits), once a top band or border is there **+ Add pictures on the top bar** and **+ Add pictures on the border** (charges drawn on it: on the border they are small, evenly spaced along its middle, one to twelve, and upright), beside a band or a picture on the background **+ Add pictures along the top (in chief)**, **along the bottom (in base)** or **a picture in the top corner (in canton)** (one such group, never beside pictures set around the band: the picture keeps clear of the room they take; they stand in a row, or in chief and in base also in rows such as two and one, and two long charges crossed), on the picture on the background (not one set around a band) **+ Add pictures on the picture** ("on a heart argent a lion azure", "a unicorn argent charged with a fleur-de-lys", "three flames each charged with a heart": one to four charges on each picture, laid out in the rectangle the picture's drawing offers; one or two on a lion, three or four on a heart or sun; a key, sword, anchor, musical note or cogwheel carries none, and a sun in splendour none), and around a picture on the background with no band **+ Add pictures around the picture** ("a lion between three mullets": two to eight of them — three two above and one below, two on each side or above and below, four in the corners or in a cross, five to eight in a ring round the edge — around one picture, or two side by side, one above the other or crossed, which keep to a box in the middle; one such group beside or around the picture), and beside a band or a picture on the background **+ Add a band or picture across everything (overall)** ("a fess and overall a lion", "a lion and overall a bend", "a rose and overall two swords in saltire": one group, a picture over a band, a band — fess, pale, bend, bend sinister, chevron, cross or saltire — over a picture, or a sword or other long charge over a picture; one charge, or two long charges crossed; drawn over the band or picture but under a top band and a border; its card has a list of what goes across, with the choices SENA App I4 does not allow greyed out and explained), and on the background beside a picture that has no band, pictures around it, or pictures on it **+ Add a second main picture beside the picture** ("a unicorn argent and a rose gules", "two fleurs-de-lys argent and a rose purpure": two groups of pictures that are together the main picture, three pictures at most between them, laid out as one group — one in each part of a field split in two, two and one for three, otherwise side by side, one above the other or along a diagonal; the first picture takes the first place, and the same arrangement applies to both). Step 4 is then a card for each layer (its × labelled "Remove the top band", its colour). A band across everything, a top band or a border starts in a standard tincture no other band or picture has, while one works, so it can be told from what it crosses or meets. A layer that can't be drawn (no room, no colour that works, a host that can't carry it) is greyed in the chooser with its reason; the builder keeps what you have chosen and only drops a top band or border when it is what the builder can't draw beside a new band. Options that would break the rule of tincture (or are structurally illegal) stay visible but are marked blocked; pressing one opens an explanation instead of applying it. A lower-layer change that breaks the design shows a violation panel (with a one-click fix when one exists) and disables Check and Register. The Field and Band or shape tiles show the heraldic term under the icon ("Per pale", "Fess"), with the everyday words ("Split down the middle") in the tooltip and the accessible name; the collapsed step summaries and other labels lead with the everyday words. On narrow screens the charge picker uses compact icon-only tiles (names are in the accessible name, the tooltip and a "Selected:" line).
+**Design.** Above the builder sit a dismissable welcome strip, a small folding **Examples** box (example arms as small shields, each named by its caption in the accessible name and tooltip; open on a device's first visit, folded on later ones, remembered in `localStorage` and folded when storage is unavailable) and an always-visible **Surprise me** button. Loading an example or a surprise replaces the design with an Undo notice. The left column (sticky on wide screens while it fits the viewport) holds the live shield, a Hatching switch, the Shape picker (see Field shapes below), the blazon and plain-English gloss, the readability meter and the Check availability / Register… actions. The right column holds the builder: step 1 **Background** (field), step 2 **Band or shape** (ordinary) and step 3 **Picture** (charge: kind, count with **More…** above six, where it goes, layout, pose with the SCA's default marked, a **With a face (in splendour)** switch for the sun, colour). Under each colour picker sits one closed **More colours and patterns…** (`<picker>-more`) for everything beyond a plain colour: a row of kinds (`<picker>-mode-<split|fur|pattern|scatter|treatment|natural>`) — Split in two, Fur, Stripes and checks, Scatter (the background and bands), Brick or scales, Natural colours (pictures that have them) — and under it the options of the kind shown; it opens by itself while the paint is one of them. The background's has no split (the division tiles are that) and, on a divided background, a switch for which part (`field-more-part-1|2`, and `3` on a field divided in three). After the step cards a quiet **+ Add pictures around, on or above** button opens the layer chooser, in three small groups (*On it*, *Around or beside it*, *Across it*), each option named after what it goes with ("Around the lion", "On the band"); one that can't be added here is greyed and says why when pressed, pictures on a top bar or border are listed once there is one, and adding a layer closes the chooser and moves focus to its new card, which has a × in its heading that removes it. The layers: pictures on the band (a second group of pictures drawn on the band, top bar or border, with its own count, layout, pose and colour), **+ Add a top band (chief)** and **+ Add a border (bordure)** (a chief and a bordure beside the band, one of each, together with the pictures: the pictures are refitted to the room they leave, so a layer is offered only when something fits), once a top band or border is there **+ Add pictures on the top bar** and **+ Add pictures on the border** (charges drawn on it: on the border they are small, evenly spaced along its middle, one to twelve, and upright), beside a band or a picture on the background **+ Add pictures along the top (in chief)**, **along the bottom (in base)** or **a picture in the top corner (in canton)** (one such group, never beside pictures set around the band: the picture keeps clear of the room they take; they stand in a row, or in chief and in base also in rows such as two and one, and two long charges crossed), on the picture on the background (not one set around a band) **+ Add pictures on the picture** ("on a heart argent a lion azure", "a unicorn argent charged with a fleur-de-lys", "three flames each charged with a heart": one to four charges on each picture, laid out in the rectangle the picture's drawing offers; one or two on a lion, three or four on a heart or sun; a key, sword, anchor, musical note or cogwheel carries none, and a sun in splendour none), and around a picture on the background with no band **+ Add pictures around the picture** ("a lion between three mullets": two to eight of them — three two above and one below, two on each side or above and below, four in the corners or in a cross, five to eight in a ring round the edge — around one picture, or two side by side, one above the other or crossed, which keep to a box in the middle; one such group beside or around the picture), and beside a band or a picture on the background **+ Add a band or picture across everything (overall)** ("a fess and overall a lion", "a lion and overall a bend", "a rose and overall two swords in saltire": one group, a picture over a band, a band — fess, pale, bend, bend sinister, chevron, cross or saltire — over a picture, or a sword or other long charge over a picture; one charge, or two long charges crossed; drawn over the band or picture but under a top band and a border; its card has a list of what goes across, with the choices SENA App I4 does not allow greyed out and explained), and on the background beside a picture that has no band, pictures around it, or pictures on it **+ Add a second main picture beside the picture** ("a unicorn argent and a rose gules", "two fleurs-de-lys argent and a rose purpure": two groups of pictures that are together the main picture, three pictures at most between them, laid out as one group — one in each part of a field split in two, two and one for three, otherwise side by side, one above the other or along a diagonal; the first picture takes the first place, and the same arrangement applies to both). Step 4 is then a card for each layer (its × labelled "Remove the top band", its colour). A band across everything, a top band or a border starts in a standard tincture no other band or picture has, while one works, so it can be told from what it crosses or meets. A layer that can't be drawn (no room, no colour that works, a host that can't carry it) is greyed in the chooser with its reason; the builder keeps what you have chosen and only drops a top band or border when it is what the builder can't draw beside a new band. Options that would break the rule of tincture (or are structurally illegal) stay visible but are marked blocked; pressing one opens an explanation instead of applying it. A lower-layer change that breaks the design shows a violation panel (with a one-click fix when one exists) and disables Check and Register. The Field and Band or shape tiles show the heraldic term under the icon ("Per pale", "Fess"), with the everyday words ("Split down the middle") in the tooltip and the accessible name; the collapsed step summaries and other labels lead with the everyday words. On narrow screens the charge picker uses compact icon-only tiles (names are in the accessible name, the tooltip and a "Selected:" line).
 
 **Check availability** shows an inline result: *Available*, *Already registered* or *Too close*, the last two with the conflicting mini shield, its name and blazon, the differences, and what to change. **Register…** opens a dialog (a bottom sheet on mobile) with a display name (public), an email address (required, private: "Used only to send you your edit/withdraw link. Never shown publicly.") and an optional Discord username (public), inline per-field errors using the same validators as the Worker, and a "What's public?" popover. A server 409 (duplicate / too close) is rendered with the same panel; an offline copy says the registry can't be reached. Success puts the share link first with a primary **Copy share link** button; the edit link sits below in a distinct "Secret edit link — don't share" box (lock icon, masked after 20 characters, Show and **Copy edit link** buttons), followed by a line saying whether it was emailed ("We've emailed it to you at the address you gave", or a clear note to save it now when sending failed or isn't configured). The address shown is what the user typed in this dialog; the API never returns it. The entry is also kept under Your arms on this device.
 
@@ -62,7 +62,7 @@ Three tabs (`role=tablist`; arrow keys, Home and End move between them): **Desig
 
 **States** (`data-widget-state` on `<html>`): Design — `ready`, `populated`, `error`; Registry — `loading`, `populated`, `empty`, `error`; Your arms — `populated` or `empty`. Dialogs and sheets keep the underlying tab's state.
 
-**Test ids.** Tabs `tab-design|registry|yours`; builder options `shape-heater|banner|round|lozenge` (group `shape-select`), `field-kind-plain`, `division-*` (including `division-badge`), `ordinary-*`, `charge-*`, `count-N` (above six inside `count-more`, whose options are `count-more-select`), `placement-*`, `swatch-<part>-<tincture>` (charges also `swatch-charge-counterchanged`), `posture-select`, `arrangement-select`, `splendour-toggle`; paint `<picker>-more`, `<picker>-mode-<kind>`, `field-more-part-1|2`, furs `<picker>-fur-<ermine|vair|potent>`, `<picker>-fur-layout-<plain|counter|en-pointe>`, `<picker>-fur-colour-1|2`; the layer chooser `add-layer-toggle` and its buttons `add-layer-<co-primary|on-picture|around|in-chief|in-base|in-canton|on-ordinary|chief|on-chief|bordure|on-bordure|overall>`, `remove-layer-<…>`, the steps `step-field|ordinary|charges` and `step-layer-<co-primary|on-picture|around|in-chief|in-base|in-canton|on-ordinary|chief|on-chief|bordure|on-bordure|overall>`, `chief-tincture`, `bordure-tincture`, and for the second main picture, the pictures on the picture, around it, in chief, base or canton, on the band, the top band and the border the same controls under a `co-primary-`, `on-picture-`, `around-`, `in-chief-`, `in-base-`, `in-canton-`, `on-ordinary-`, `on-chief-` or `on-bordure-` prefix (and, for what lies overall, `overall-item-select` with `overall-tincture` for a band, or the picture controls under `overall-` for a picture; for the others `on-ordinary-charge-select`, `on-ordinary-count-N`, `on-ordinary-arrangement-select`, `on-ordinary-posture-select`, `on-ordinary-splendour-toggle`, `on-ordinary-charge-tincture`, `swatch-on-ordinary-charge-<tincture>`); status `blazon`, `gloss`, `violation-panel`, `tincture-explainer`; actions `check-availability`, `open-register`; results `availability-ok|duplicate|too-close|error`; register `register-dialog`, `register-name`, `register-email`, `register-discord`, `register-name-error|email-error|discord-error`, `register-error`, `public-info-button`, `public-info-popover`, `register-submit`, `register-success`, `share-link`, `copy-share-link`, `edit-link` (inside `edit-link-box`, with `copy-edit-link`, `reveal-edit-link`), `register-mail-status` (`data-outcome` sent|failed|disabled); registry `registry-search`, `filter-category|charge|posture|ordinary|division|field-tincture|tincture|charge-tincture`, `clear-filters`, `registry-refresh`, `registry-loading`, `registry-empty`, `registry-error`, `registry-retry`, `registry-show-sample`, `registry-more`, `result-card`, `entry-sheet`, `load-into-builder`, `print-nametag`, `entry-discord`, `copy-entry-discord`, `entry-recover-link`; owner `owner-name`, `owner-discord`, `owner-shape-<shape>`, `owner-save`, `owner-withdraw`, `withdraw-confirm`, `owner-stale`, `owner-denied`, `owner-edit-link`; recovery `header-recover-link`, `recover-view`, `recover-email`, `recover-email-error`, `recover-submit`, `recover-sent`, `recover-offline`, `redeem-view`, `redeem-new-link`, `redeem-withdraw`, `redeem-withdraw-confirm`, `redeem-recovered`, `redeem-edit-link`, `redeem-withdrawn`, `redeem-link-error` (`data-code`); nametag sheet `print-view`, `print-count`, `print-copies-one|fill`, `nametag`, `print-now`, `print-back`.
+**Test ids.** Tabs `tab-design|registry|yours`; builder options `shape-heater|banner|round|lozenge` (group `shape-select`), `field-kind-plain`, `division-*` (including `division-badge`; the seven behind `field-shape-more` are in `field-more-division-select`, and a gyronny's counts `field-pieces-6|8|12`), `ordinary-*`, `charge-*`, `count-N` (above six inside `count-more`, whose options are `count-more-select`), `placement-*`, `swatch-<part>-<tincture>` (charges also `swatch-charge-counterchanged`), `posture-select`, `arrangement-select`, `splendour-toggle`; paint `<picker>-more`, `<picker>-mode-<kind>`, `field-more-part-1|2|3` (the third on a field divided in three, whose third colour is `field-tincture-3`, swatches `swatch-field3-<tincture>`), furs `<picker>-fur-<ermine|vair|potent>`, `<picker>-fur-layout-<plain|counter|en-pointe>`, `<picker>-fur-colour-1|2`; the layer chooser `add-layer-toggle` and its buttons `add-layer-<co-primary|on-picture|around|in-chief|in-base|in-canton|on-ordinary|chief|on-chief|bordure|on-bordure|peripheral|overall>`, `remove-layer-<…>`, the steps `step-field|ordinary|charges` and `step-layer-<co-primary|on-picture|around|in-chief|in-base|in-canton|on-ordinary|chief|on-chief|bordure|on-bordure|peripheral-<i>|overall>`, `chief-tincture`, `bordure-tincture`, the band step's `ordinary-more-select` (`ordinary-base|point|canton|quarter|gyron|orle|tressure|flaunches|gore|pall|label|fret|mount|trimount|baton`), `ordinary-shape-sinister`, `ordinary-shape-thin`, `ordinary-number-2|3` (a tressure) and `ordinary-number-2|3|4` (thin bands), their radio groups `ordinary-number`, `field-edge-select`, `ordinary-edge-select`, `ordinary-outline-select` and `ordinary-cotise-edge-select`, for each corner or edge shape `peripheral-<i>-item-select`, `peripheral-<i>-tincture` (`swatch-peripheral-<i>-<tincture>`), `peripheral-<i>-shape-more`, `peripheral-<i>-shape-sinister`, `peripheral-<i>-number-2|3`, `peripheral-<i>-edge-<line>`, and for the second main picture, the pictures on the picture, around it, in chief, base or canton, on the band, the top band and the border the same controls under a `co-primary-`, `on-picture-`, `around-`, `in-chief-`, `in-base-`, `in-canton-`, `on-ordinary-`, `on-chief-` or `on-bordure-` prefix (and, for what lies overall, `overall-item-select` with `overall-tincture` for a band, or the picture controls under `overall-` for a picture; for the others `on-ordinary-charge-select`, `on-ordinary-count-N`, `on-ordinary-arrangement-select`, `on-ordinary-posture-select`, `on-ordinary-splendour-toggle`, `on-ordinary-charge-tincture`, `swatch-on-ordinary-charge-<tincture>`); status `blazon`, `gloss`, `violation-panel`, `tincture-explainer`; actions `check-availability`, `open-register`; results `availability-ok|duplicate|too-close|error`; register `register-dialog`, `register-name`, `register-email`, `register-discord`, `register-name-error|email-error|discord-error`, `register-error`, `public-info-button`, `public-info-popover`, `register-submit`, `register-success`, `share-link`, `copy-share-link`, `edit-link` (inside `edit-link-box`, with `copy-edit-link`, `reveal-edit-link`), `register-mail-status` (`data-outcome` sent|failed|disabled); registry `registry-search`, `filter-category|charge|posture|ordinary|division|field-tincture|tincture|charge-tincture`, `clear-filters`, `registry-refresh`, `registry-loading`, `registry-empty`, `registry-error`, `registry-retry`, `registry-show-sample`, `registry-more`, `result-card`, `entry-sheet`, `load-into-builder`, `print-nametag`, `entry-discord`, `copy-entry-discord`, `entry-recover-link`; owner `owner-name`, `owner-discord`, `owner-shape-<shape>`, `owner-save`, `owner-withdraw`, `withdraw-confirm`, `owner-stale`, `owner-denied`, `owner-edit-link`; recovery `header-recover-link`, `recover-view`, `recover-email`, `recover-email-error`, `recover-submit`, `recover-sent`, `recover-offline`, `redeem-view`, `redeem-new-link`, `redeem-withdraw`, `redeem-withdraw-confirm`, `redeem-recovered`, `redeem-edit-link`, `redeem-withdrawn`, `redeem-link-error` (`data-code`); nametag sheet `print-view`, `print-count`, `print-copies-one|fill`, `nametag`, `print-now`, `print-back`.
 
 **Keyboard.** Tab order follows the page; radio-style option groups are one tab stop with arrow keys moving and selecting (blocked options can be focused and explain themselves on Enter/Space). Dialogs and sheets trap focus, Escape closes only the topmost layer (a popover inside a dialog closes first), and focus returns to the opener. Animations are off under `prefers-reduced-motion`.
 
@@ -95,8 +95,16 @@ same arms (a duplicate). The owner can change it later without a uniqueness re-c
 All four shapes share the 100 × 120 viewBox (`src/lib/heraldry/geometry.ts`). Each shape has its
 own outline, bordure inset (the outline moved inwards), fess point, chief depth and pile; partition
 lines and the fess, pale, bend, chevron, cross and saltire are built the same way around the shape's
-fess point and clipped to its outline. Charge slots for the banner, round and lozenge
-(`shape-slots.ts`) are the heater's tables spread, shifted and sized to fit each shape.
+fess point and clipped to its outline. Field regions and ordinaries are closed contours (`contour.ts`): a division's
+parts come from `partitionContours`, and `partIndexAt` says which part a point lies in. An ordinary's drawing comes from
+`ordinaryGeometry(spec, frame)` (`ordinary-geometry.ts`): the spec is everything about the group that changes its drawing (type,
+lines, treatments, count, cotises, fimbriation), the frame is where in the shape it is drawn; it gives the body, fill rule, centre,
+box, the points the ordinary lies on, its trims (fimbriation and cotises, each a path with the points it lies on) and two straight
+envelopes — `outer` holds the whole body, lines, fimbriation and cotises and all, and `inner` lies wholly inside the body. Render
+layers carry an ordinary's parts in paint order: fimbriation, body, cotises. Layout contexts name the
+ordinary they sit around or on by its spec: a plain ordinary keeps its hand-fitted rows, any other is laid out by the generic
+engine, keeping charges between it clear of `outer` and charges on it inside `inner` (never fitted to the toothed body). Charge
+slots for the banner, round and lozenge (`shape-slots.ts`) are the heater's tables spread, shifted and sized to fit each shape.
 
 **Validity is shape-independent.** The rule of tincture is judged on the canonical heater layout
 only, so every shape gives a design the same verdict, issues, fix suggestions and option locks.
@@ -107,6 +115,303 @@ every slot stays inside the outline (with margin), on or clear of its ordinary, 
 neighbours, and that each slot lies on the same parts of a divided field as its heater slot.
 
 Old drafts (saved before shapes existed) and requests without a `shape` use the heater shield.
+
+**Lines of partition** (`lines.ts`, `contour.ts`) are drawn by the library on the field's divisions and counted variations, and the builder offers them: every background with arms shows one closed **More divisions and edges…** (`field-shape-more`, `MoreShapes.tsx`; it opens by itself while the division is one behind it or a line is set) with a row of the lines the host takes
+(`field-edge-<line>`, `field-edge-plain` is "Straight"; `EdgePicker.tsx`, `shape-options.ts`) and, for a quartered field with a line,
+which of its two lines carry it (`field-edge-side-both|a|b`); chevronny's corners take none, and a line on the division or stripes of a band or
+picture stays a gap (`line-of-partition:on-divided-charge`), as does a different line on each of a quartered field's two lines. The same row is under the band (**More shapes and edges…**, `ordinary-shape-more`, its controls shown once a band is chosen; `OrdinaryEdges.tsx`) and on the
+top band, the border and each corner or edge shape (**Edge…**, `chief-shape-more`, `bordure-shape-more`, `peripheral-<i>-shape-more`): a line is offered as its blazon bares it (a fess embattled is its upper edge alone,
+a fess wavy both, a chief engrailed its one edge), and a band with two edges and a line also shows `ordinary-edge-side-both|a|b` (a corner or edge shape's card `peripheral-<i>-edge-side-both|a|b`; "Both edges", "Top edge only" /
+"Bottom edge only", "Left edge only" / "Right edge only" for a pale) so "embattled counter-embattled" and "wavy on the lower edge" are reachable. `setOrdinary` keeps the line
+a new band takes. A line on a band lying across everything stays a gap (`line-of-partition:on-overall`).
+
+**Treatments** that change an ordinary's outline are drawn by `ordinary-geometry.ts` from the spec's `mods` and offered in the same
+**More shapes and edges…** disclosure above the edge row (`ShapeToggles.tsx`, `shape-options.ts`): toggles `ordinary-shape-inverted`
+("Upside down": a chevron or pile reflected about a line 10 below the fess point, so a chevron inverted's limbs rise to the sides and a
+pile inverted issues from the base), `ordinary-shape-couped` ("Shortened": a fess, pale, bend, bend sinister, chevron, cross or saltire cut
+12 inside the shape on its middle line and both edges, its ends straight even when lined) and `ordinary-shape-throughout` ("Touching the
+edges": a chevron's apex on the top, a pile's point on the base), pressed buttons (`aria-pressed`) that explain when blocked; and for a
+fess, a bend (sinister) or a chevron `ordinary-position-enhanced|middle|abased` ("Raised · Middle · Lowered": moved 12 across the band). The
+hosts are `MOD_HOSTS` (`ordinaries.ts`); a treatment on any other ordinary keeps the gap `ordinary-treatment:<mod>-on-<type>`, couped and
+throughout, enhanced and abased, throughout and either, and a cross or saltire throughout don't resolve, a treated band lying across
+everything is `ordinary-treatment:on-overall` and a couped band as a fieldless badge `fieldless:couped-ordinary`. A chevron inverted is its
+own conflict key (SC against the chevron, A5E5c; a DC when not primary), a pile inverted a DC of orientation (A5G7), couping a DC folded
+into the change of type (A5G4), enhanced, abased and throughout no difference; a charged chevron inverted abased is refused. Charges set
+between or on a treated ordinary start from the plain one's places moved with it (Table 7's own row for a chevron inverted: one inside
+the V, two below), then the generic engine sizes them against its envelope. `setOrdinary` keeps the treatments a new band takes. The
+blazon writes "inverted" before the line and the others after it ("a chevron inverted embattled on the upper edge", "a saltire raguly
+couped", "a chevron ployé throughout").
+
+**Cotises, fimbriation and voiding** are drawn by the library and offered in the same disclosure. Cotises (`item.cotised`: one to three a side, a paint and a line, which follows the ordinary's `lines.a` unless given)
+are thin bands beside each long edge, a quarter of the band wide and a cotise's width apart and from it, mitred where a chevron's, cross's,
+saltire's or pile's edges meet; a doubly or triply cotised band is drawn narrower so that it and its cotises take the field a band cotised
+once does (a cross's and a saltire's arms narrower still), and their line is laid on the band's periods. Fimbriation is the body grown 2
+all round, following its line, drawn under it; voiding cuts the middle out of a cross, saltire or pall (`MOD_HOSTS.voided`), its straight edges 4 inside the
+arms' (past what their line cuts in), filled evenodd. The rules (SENA A3C, structure rule `ordinary-treatment`): voided only a cross,
+saltire or pall, fimbriated only a central ordinary, both only in the primary group, not fimbriated when enhanced or abased or voided, cotised only a
+fess, pale, bend (sinister), chevron, pile, cross or saltire and never on a tertiary; cotises and fimbriation lie on the field and contrast
+with it, the body within its fimbriation need not, but may not be the field's tincture; a charge overall over a fimbriated ordinary is a
+step from core practice. For conflict the cotises are a secondary group of the ordinary's type (`liftCotises`: presence, number of pairs,
+tincture and line each count), and a voided or fimbriated ordinary is read two ways and the least different reading counts (SENA A5C1:
+voided = with one of the field's tincture on it, or of the field's tincture fimbriated; fimbriated = alone, or of the fimbriation's
+tincture with the ordinary on it). Blazon: "a fess gules cotised Or", "a bend cotised azure" (a shared tincture said once), "a bend wavy
+purpure cotised plain sable", "a pale endorsed", "a pale wavy sable fimbriated Or", "a chevron gules fimbriated between three lions argent",
+"a cross voided Or".
+
+**Peripherals beside the chief and bordure** — a base, a point pointed, a canton, a quarter and a gyron, and the canton, quarter and gyron
+sinister (the mod `sinister`, mirrored about the shape's middle: an ordinary's own form, not a place of the field) — are drawn, ruled,
+compared, blazoned and built (`MORE_ORDINARIES`). The band step's **More shapes and edges…** (`ordinary-shape-more`, closed, on every coat of arms)
+holds a **More shapes** row of them (`ordinary-more-select`, tiles `ordinary-base|point|canton|quarter|gyron`; it opens by itself while one is the
+band, and no tile of the main row is checked then) above the toggles, where `ordinary-shape-sinister` ("On the right") sets a canton, quarter or
+gyron in the other corner (and turns a baton sinister). Alone, or with only a chief or bordure, one is the design's band (`places.ts`: the first in canonical order stands
+before a chief, which stands before a bordure; this also ends the old crash on picking any non-central band). Beside a band any number more
+are added as cards (**+ Add** → "A border shape: canton, base, point…", `add-layer-peripheral`): each a place of its own, `peripheral-0`,
+`peripheral-1` … in canonical order (`PeripheralPlace`; `layersIn`, `removeLayer`), starting as the first type the shield has none of that
+works there, one that leaves the band where it is first, in a tincture apart; the card (`step-layer-peripheral-<i>`, `remove-layer-peripheral-<i>`)
+changes its type (`peripheral-<i>-item-select`: `peripheralItemChoices`, a type the shield has already blocked, `setPeripheralItem`), its tincture
+(`peripheral-<i>-tincture`) and, under **Edge…** (`peripheral-<i>-shape-more`), its corner (`peripheral-<i>-shape-sinister`) and line
+(`peripheral-<i>-edge-<line>`). A second of one type stays `multiple-groups:peripherals`, and charges on a base, point or gyron
+`multiple-groups:tertiary-on-<type>` (no layout yet). The base is 28 tall on the
+heater (taller in a shape with a taller chief) and takes a line on its upper edge; the point pointed rises from the box's lower corners to
+80 on the heater with its sides bowed toward the base, and takes no line; the canton is a third of the box from its dexter chief corner
+(the lozenge's 0.4, or its sloping edge leaves a sliver), the quarter a half; the gyron runs from that corner to the fess point and across
+to the flank. A line on a canton, quarter or gyron is laid on both inner edges out from where they meet. Any number of them may stand
+together, in `PERIPHERAL_ORDER` (paint and blazon order: base, mount, trimount, point, point dexter, point sinister, gyron, flaunches, gore, orle, tressure, chief, bordure, label, quarter, canton). Charges on the field, between
+or on an ordinary, in chief or base and around the primary charges keep clear of them all: each layout context carries them as
+`keepOut` (the specs, `[]` when there are none), whose envelopes the ground avoids; their hand-fitted rows then don't apply, and the
+generic engine moves the charges up to 24 and draws them together a little where that lets them grow, on the heater and in each shape.
+A base or point ends the free field for the other ordinaries (`ordinaryFrameOf`: the frame's `bottom`): they are drawn on under it,
+but the points they lie on stop there. Rules: a chief and a base alike in tincture and line are refused (RULES-C §C.3); a canton or
+quarter stays uncharged (SENA A6C1); nothing lies overall with one of them (App I4); a field per fess with a base needs a charge across the
+line when the two lines could be one fess (A3D1c at the foot). Conflict: a quarter is a canton (one type, L9), a base and a point
+pointed differ by a DC, and the canton sinister is a DC of position (A5G6). Blazon joins each by its majority joiner in the O&A
+(`PERIPHERAL_JOINER`: "and a base", ", a point pointed", "and a canton", ", a quarter", "and a gyron"; the chief and bordure keep
+", "): "Argent, a mullet sable and a base azure", "Quarterly azure and gules, a point pointed Or", "Argent, a canton sinister gules".
+
+**The orle, tressure, flaunches and gore** join them (tiles `ordinary-orle|tressure|flaunches|gore` in the More shapes row and the cards'
+lists). The orle is a ring following each shape's own inset (the bordure's inner edge moved in: 12 to 20 from the edge on the heater, the
+orle and the field either side about as wide, RULES-C §C.3; the lozenge's 10 to 18), its outer edge line `a`, its inner `b` (a bare line is
+both edges, L3; "an orle embattled on the outer edge"), the two edges in step. A tressure is a narrow orle, 3 wide: a single one is an orle
+(canonical), a double or triple (`ORDINARY_COUNTS`, the group's count) has two or three rings 3 apart; its count row **Double · Triple**
+(`ordinary-number-2|3`, `peripheral-<i>-number-2|3`; `ordinaryCountChoices`, `setOrdinaryCount`, builder `setOrdinaryNumber`) sits with the
+shape toggles, and its tile sets a double tressure. Flaunches are two circular arcs from the top corners of the shape's box to its foot,
+bulging a quarter of its width at mid-height, a line on both curves (mirrored); the gore is a curve from the dexter chief corner to the
+fess point and another on to the foot below it, a line on both, and `ordinary-shape-sinister` turns it to the right ("a gore sinister").
+Rings that moving an inset inward makes cross themselves at the heater's foot are cut out (`withoutLoops`). Charges keep inside an orle or
+tressure (its envelope's `outer` is all of the field outside its innermost edge, one polygon) and out of flaunches and a gore; the generic
+engine draws them together further for this (spreads down to 0.6 on the heater, 0.5 in the other shapes). Blazon: "Per bend argent and
+vert, a heart within an orle gules", "Gules, a lion within a double tressure Or", "Sable, in pale three roundels between flaunches Or",
+"Or, flaunches azure" (no article: `ORDINARY_ARTICLE` null), "Argent, a gore sinister azure" — joiners " within ", " between " and
+" and " from the O&A counts, kept when the element before shares the tincture. Conflict: a tressure is an orle (one type: a double
+tressure differs in number, A5G5), flaunches count as two (two DCs from a chief), the gore sinister is a DC of position (L16). Two gores,
+a gore beside a gore sinister and an orle beside a tressure stay gaps (`multiple-groups:two-gores`, `multiple-groups:peripherals`), and
+charges on a gore or flaunches `multiple-groups:tertiary-on-<type>`.
+
+**The dexter and sinister points** (`REFUSED_ORDINARIES`: `point-dexter`, `point-sinister`) are drawn (the dexter base cut off by a
+line from the dexter side of the box, 0.6 down, to its foot 0.7 across; the sinister mirrored), glossed and blazoned ("a point dexter")
+so that a design with one shows itself, but the structure rule `side-point` always refuses them: "neither the dexter nor the sinister
+point was used in period armory" (RULES-C §C.3, L21). The builder never offers them; the matcher reads "a dexter point" and files the
+record as that refusal.
+
+**The pall, fret, label, mount and trimount** (C10; tiles `ordinary-pall|label|fret|mount|trimount` in the More shapes row, and the label, mount
+and trimount also in a card's list). The pall is three arms of a cross's width from the fess point — to the chief corners of the shape's box
+and down — with a line on every edge, laid out from the centre like a saltire's; it may be voided and fimbriated, never cotised (L20: not
+offered). The pall inverted is a type of its own (`pall-inverted`, the pall turned over about the fess point, so the arms still meet
+there): the Upside down toggle of a pall changes its type (`TILE_OF`: the pall's tile is checked for both, `TURNED_ORDINARIES` are drawn
+but have no tile) and a pall carrying the `inverted` mod canonicalises to it. Charges: three between a pall stand one in each section
+(between the chief arms, either side of the foot — turned over for the inverted), one or three on it (one at the middle, or one on each arm,
+turned to follow it). The fret (`ORDINARY_KIND` central here though SENA calls it a charge: alone it is the main picture) is a mascle
+woven with a bendlet and a bendlet sinister running off the shape: pieces cut short where one member passes under another (convex,
+disjoint, one body); it takes no line, voiding or fimbriation, and as a charge it can't be counterchanged over an ordinary or stripes
+(CC-8, CC-3). The label (a bar across the chief with three tapering pendants, throughout), the mount and the trimount (one hill, three) are
+`'other'` ordinaries that always stand as peripherals (role `peripheral`: beside a picture, or alone with the field as the main group, SENA
+A5F) and keep charges out of them like a base; they take no line or treatment; the label is always drawn in chief (the plan's "alone, centred"
+is not drawn). Joiners from the O&A: ", a label", " and a mount", " and a trimount". Conflict: a pall against a pall inverted is a
+substantial change of type (A5E5c), a mount against a trimount one DC, a label of three points the only label drawn ("of five points",
+`ordinary:label-points`, and a label overall, App I4, `placement:overall-label`, stay gaps).
+
+**More divisions** (C12; RULES-C §E.1–E.2): per chevron inverted, per chevron throughout and gyronny, in `MORE_DIVISIONS` — the first row of **More divisions and edges…** (`field-more-division-select`, tiles `division-per-chevron-inverted|per-chevron-throughout|gyronny`; `setDivision` is the same function as for the first seven). Per chevron inverted is the per chevron limbs mirrored below the fess point (first part above); per chevron throughout puts the apex on the top edge, its limbs falling at 45° (the lozenge's steeper, so they meet its edge) — a different drawing of the same A5F1 category (`partition()` maps it to per chevron, no difference), and a bare one is also read as a pile inverted throughout (`asThroughoutOther`, a key-crossing reading: such a field keys `{ partition: null, primary: ANY_PRIMARY }` and a bare pile inverted throughout `partition: null`). A gyronny has `pieces` 6, 8 or 12 (`GYRONNY_PIECES`; `field-pieces-6|8|12`; `divisionPieces` makes eight the stored default, so "Gyronny" alone is eight and "of eight" is never blazoned; 10, 16 and the like parse as the gap `division:gyronny-pieces-<n>`), its sectors alternate, one line always fesswise (Prec 02/2003) and the first part the one just above it on the dexter side; its lines are laid from the centre, an **arrondi** one (`arrondi`: straight group, allowed on a gyronny only) an arc bowing a tenth of its length, every one the same way round. Conflict: gyronny is its own category, 6, 8 and 12 pieces alike (A5G1d: more than four are not told apart, so its tinctures may be swapped too), arrondi no different from straight; a gyronny's only counterchanged charge is a single one (a saltire or a cross is refused, RULES-C §E.2). The three are drawn on the field only: as the paint of a band or charge they stay `division:<d>-on-charge`; the layout's mapped-slot check (`PLAIN_DIVIDED_FIELDS`) stays on the first seven, so the pinned slots did not move.
+
+**SENA corrections after the phase-C review** (findings R-1 … R-12; `test/review-rules.test.ts`): three charges on per chevron inverted stand one
+and two (GoT Table 7); a charge alone where a per pall's three parts meet lies on all three alike (A3B4a's "Per pall inverted argent, gules, and
+azure, a mullet sable" is refused); each cotise is judged on the part of the field it lies on — the cotises beside each run of the body's edges
+between two ends (`OrdinaryTrim.pieces`: a band's either side, a chevron's above or below both limbs, a cross's or saltire's between two arms) —
+not all of them as one ground; four charges in cross on quarterly, per saltire, gyronny (arrondi too) and per pall are judged about the fess
+point on the lines drawn straight, though the cross is drawn a little low; the baton is dexter; a canton or quarter must be of a single tincture
+or fur (A6C1, the sinister forms too); over gyronny one charge, or as many in annulo as there are gyrons, may be counterchanged (L33), never a
+central ordinary; and a field in two parts may share a tincture when its main band lies over the line (A3B3a "unless the sections are separated
+by an ordinary"; not quarterly or per saltire, A3B3c).
+
+**Code fixes after the phase-C review** (findings K-1 … K-27; `test/review-code.test.ts`): a pall inverted with the inverted mod is the pall
+(`canonicalOrdinary`); a point pointed leaves the bands across the field in place (`OrdinaryFrame.baseTop`: only a base ends the field
+`bandPlace` centres them in); charges on a voided cross, saltire or pall are the gap `multiple-groups:tertiary-on-voided` (they would lie in the
+voiding) and Hollow is blocked while the band carries them; lines laid out from where they meet (`Junction` in `geometry.ts`: a chevron's limbs
+at its apex, gyronny's rays, per saltire's, per pall's and quarterly's arms) start their features far enough out to keep off the middle line
+of each angle (their reach toward it over the tangent of half the angle, plus a gap), so they no longer cross at the point of per chevron
+inverted or the centre of gyronny of twelve; new cotises take the band's line only where a cotise can (`cotiseLineFor`: plain on a chevron
+rompu or bend bevilled); a fess under a chief is lowered until its lines and trim clear the chief (`fessReach`; on the lozenge, as far as
+the shape stays wide); a per chevron throughout ↔ pile inverted throughout reading keeps the peripherals, and either is keyed to every
+registry entry; changing a corner shape's type is refused when adding it would be.
+
+**Drawing fixes after the phase-C review** (findings U-1 … U-9, K-22; `test/review-visual.test.ts`): bevilled is an antisymmetric single
+profile (`LineProfile.symmetric` false): each half of the line leans a little from where it meets the shape to a short step at the middle, so
+the half beyond the step is offset by it, and `laidSide` turns the step palewise on a bend and a bend sinister alike (a bend's two edges step
+together, so its lower half moves). A chevron rompu is cut palewise across both limbs `ROMPU_BREAK` either side of the apex and the point
+between the cuts raised by 0.4 of its thickness (PicDic: "its point sliced off and raised"); it is drawn straight-edged and not widened, its
+cotises step with it. On a bordure, grady, potenty, nebuly, dovetailed and raguly are cut half its width deep, their periods as much shorter as
+they are shallower (`bordureLine`). A canton's or quarter's lined edges stop short of where they leave the round or the lozenge at a slant, cut
+no deeper for their few periods than 1.5 times as on a band (`Course.clearExit`, `exitClearance`). The line of a couped band or arm stops half
+a depth inside its straight ends (`coupedEndClear`), so no riser or dovetail sticks out past them. A fine-grained line (six repeats or more
+across the shield: indented, engrailed, invected, rayonny) shows three periods at least on each arm of a cross, saltire or pall, as much
+shallower as they are shorter (`Course.minPeriods`). The shape picker says when the chosen shape can't draw a group's charges at a size that
+reads though the heater can (`crampedInShape`, e.g. a fess between three roses and a base on the lozenge): the shape is display only and the
+verdict stays the heater's (`test/shape-verdict.test.ts`). The edge chips of a division and of a band through the middle of the field picture
+the middle of the field only (`Shield`'s `view`, `EdgePicker`'s `zoom`), and a gyronny's chips draw the line on a field per fess. Hollow shows,
+blocked with SENA A3C's reason, on a fess, pale, bend or chevron; thin bands show their band's treatments they can't take, blocked ("Thin bands
+can't be shortened: turn Thin off first."); and Thin is blocked while such a treatment is on, instead of dropping it.
+
+**Convention fixes after the phase-C review** (findings K-12 … K-37, U-10, U-11; `test/review-conventions.test.ts`): the SCA tooling
+builds the words it reads for the library's constructs from the library's tables (`test/sca/words.ts`), and the library keeps one table
+for each thing — `MOD_HOSTS.voided` for what may be hollow, `LINE_LOOK` (plain-words) for how a line looks, from which the gloss's adjective
+and the chip's label both come, `DRAWN_LINES` for the order of the lines (`COMMON_LINES`, its first seven after straight, before the edge
+row's break), `partCount` for the pieces of a division in three, `ordinaryEdgeHost` for the edges of a band, `SHAPE_TOGGLES`,
+`toggledOn` and `bandPositionOf` for the words of a band's shape in a step's summary. Whether adding a layer brings a new
+rule-of-tincture problem is decided on what each problem is about (its rule, the place of its group, its charges), not on its wording.
+The library's caches of drawn geometry share one bounded memo (`memo.ts`). The cotises of a couped band or arm are couped with it: its
+straight ends are cut where its outermost cotise still lies inside the shape (they ran off the shield on a couped bend or saltire), and
+Thin is blocked while the band has an outline ("Thin bands have no outline: set the outline to None first."). The outline row reads
+None · Edged · Stripe each side · Two stripes each side · Three stripes each side, and the count row of thin bands "How many thin bands".
+Every test file is type-checked (`tsconfig.test.json` takes `test/**/*.ts` but the Workers-runtime files, which `tsconfig.worker.json` lists).
+
+**Fixes after the verify pass** (findings V-1 … V-8 and the K-7, K-13 residuals; in the four review tests): four charges in cross on a field
+whose lines meet at the fess point are judged about it, on its lines, only while they are drawn within 6 units of it (`IN_CROSS_SLACK`; the
+plain drawing sits 5 low) — a chief, a charge in base or an orle moves them further, and they are judged where they are drawn. A
+rule-of-tincture issue names the part of its group it is about (`TincturePart`: body, fimbriation, cotises, or a semy's strewn charges), so a
+new layer that gives a band's fimbriation or cotises a problem its body already had is refused again. Where the lozenge's free field is
+too short for a fess under a chief (cotised on its own line, or enhanced), the fess is drawn at the lowest place it may take, raised no
+further, and narrower until it clears the chief (`bandPlace`, down to a third of its width). A bordure's deep-cut lines (grady, potenty,
+nebuly, dovetailed, raguly) are fitted to whole periods, overhangs and all, between the inset's corners, so no dovetail or lobe folds round a
+corner; the round, with no corners, is unchanged. A baton sinister counterchanged over stripes is judged as a bend sinister (it runs along
+bendy sinister, across bendy). Hollow and the other treatments of a charged band are blocked only by a gap they bring, not one its charges
+already had (`onItProblem`); a chevron rompu couped and cotised is the gap `ordinary-treatment:cotised-couped-rompu` (its inner cotise
+folds under the raised point), so the outline, toggle and line that would make it are blocked (`newItemGap`). The SCA normaliser reads
+"<band> <line> inverted" for every band that takes inverted ("a pall wavy inverted"), and its number and cotise words come from the library.
+
+**Divisions in three** (C13; RULES-C §E.1–E.2): per pall, per pall inverted, tierced in pale and tierced in fess join `MORE_DIVISIONS` (tiles `division-per-pall|per-pall-inverted|tierced-per-pale|tierced-per-fess`). A field so divided has three parts (`partCount`), in blazon order: per pall the chief part between the arms, then dexter and sinister; per pall inverted dexter, sinister, then the base part; tierced dexter to sinister, chief to base. The per pall's arms run from the fess point to the box's top corners (the inverted one's mirrored below it) and straight down (up); a tierced field's two lines bound a middle third of the box centred on the fess point. A line on one is drawn on every line ("per pall wavy"), laid out from the centre for a per pall. Words: "Per pall A, B and C" (no serial comma), "Tierced in pale A, B and C" (`DIVISION_NAME`; the ids keep `per`); `divisionGloss` takes every part's colour. Rules: no two parts share a tincture (A3B3a); per pall needs one part contrasting with both others (A3B3b); tierced needs its middle part to contrast with both outer ones (the strictest reading, L11), and with its outer parts alike it is refused as "a pale"/"a fess" (L24); App H holds across every pair of parts a complex line divides (`adjacentParts`, L12); a chief on a per pall lies on its chief part alone (A3B4a's example); Table 7 sets two charges on a per pall in fess and three one in each part (tierced: in fess / in pale). Counterchanging over three parts is the gap `division:counterchanged-over-three-parts` (the builder doesn't offer it), and as the paint of a band or charge they stay `division:<d>-on-charge`. Conflict: per pall and per pall inverted are each their own category; tierced in pale is in per pale's and tierced in fess in per fess's (L11), three pieces (A5G1d); a field in three changes tincture (A5G1a) only when at least half its area does, measured point by point on the heater (`divisionPartGrid`), so one part of three is no change and two swapped are. The builder's `setDivision` fills a third part that contrasts with the second (`partner`), and the Background shows a third picker (`setFieldTincture(d, 0 | 1 | 2, t)`, `fieldTinctureChoices` blocking what the other two parts have).
+
+**Diminutives** (C11; RULES-C §C.2): bars, pallets, bendlets, bendlets sinister and chevronels two to four at a time (`THIN_ORDINARIES`,
+`ORDINARY_COUNTS`), and the baton (a bendlet couped from dexter chief, its own type, "a baton sinister" with `ordinary-shape-sinister`; tile `ordinary-baton` in the More shapes row). A group is drawn
+as its ordinary's outline narrowed (`DIMINUTIVE_WIDTH`: 10, a chevronel 9), set evenly across the ordinary's place — bars one above
+another, pallets side by side, bendlets across the bend, chevronels nested and lifted a little (the heater's foot would hide the lowest) —
+and moved or turned over as a whole (enhanced, abased; chevronels inverted); bars and chevronels under a chief start below it
+(`OrdinaryFrame.top`). Lines are cut 0.3 of a diminutive deep. Charges between a group follow its ordinary's Table 7 row (`betweenHost`)
+and keep clear of one envelope round the whole group; three or four bars or pallets leave little room (the capacity rule says so).
+SCA armory uses no single diminutive as the main or overall band, so one bar, pallet, bendlet (sinister) or chevronel is canonicalised to its
+ordinary, barrulets to bars and a saltorel to a saltire couped; a single one beside the main group (`ordinary:single-diminutive`), several
+saltorels (`ordinary:saltorel-multiple`), outlined diminutives (`ordinary-treatment:outline-on-diminutives`), charges on them
+(`multiple-groups:tertiary-on-diminutives`) and diminutives set around a picture (`multiple-groups:secondary-ordinary`) stay gaps. Words:
+"three bars wavy argent", "two chevronels inverted", "two bendlets sinister" (`ORDINARY_PLURAL`). Conflict: a diminutive is its ordinary's
+type (`familyOf`; a baton a bend couped, a baton sinister a bend sinister couped: `familyOfTreated`), the count is the number (a bend against two bendlets is substantial), and three or more
+identical diminutives on a plain field, alone or beside peripherals, are also read as the variation (bars as barry, pallets paly, bendlets
+bendy, chevronels chevronny; SENA A5C1), the least different reading taken — such a design keys `{ partition: null, primary: ANY_PRIMARY }`
+so the registry lookup compares it with everything. Bendlets enhanced with other charges are a step from core practice (`coreSteps`). The
+builder reaches them through the **Thin** toggle (`ordinary-shape-thin`) of a fess, pale, bend, bend sinister or chevron, which draws it as
+two of its diminutive (blocked while the band has an outline, which thin bands can't keep, or a treatment they don't take: "Thin bands have no
+outline: set the outline to None first."; picking another band keeps them thin), and the count row `ordinary-number-2|3|4` ("How many thin
+bands": "Two · Three · Four"); the band's tile stays checked (`TILE_OF`). "Three chevronels braced" is not drawn (`arrangement:braced`, PLAN-C §6).
+
+The builder reaches them from **More shapes and edges…** on a central band or shape (`OutlineControls.tsx`, `outline.ts`, `shape-options.ts`):
+`ordinary-outline-none|fimbriated|cotised|doubly-cotised|triply-cotised` ("None · Edged · Stripe each side · Two stripes each side · Three stripes each side", the heraldic term in each one's accessible name and tooltip; one outline at a time, so
+fimbriated and cotised together stays the gap `ordinary-treatment:fimbriated-and-cotised`), then `ordinary-outline-tincture` (swatches
+`swatch-outline-<tincture>`, and `swatch-outline-counterchanged` for cotises on a divided or striped background; the other paints of a trim
+are the gaps `ordinary-treatment:trim-<kind>`, `tincture:<stain>`, `proper:trim` and `ordinary-treatment:fimbriated-counterchanged`), and for
+cotises their own edge row `ordinary-cotise-edge-<line>` (small strips drawn from the line's profile, not shields; `lineChoices` with the target
+`{ k: 'cotises', path }`). `ordinary-shape-voided` ("Hollow") is a toggle of a cross, saltire or pall (`MOD_HOSTS`), blocked while charges lie on it. `outlineChoices` blocks an outline
+only by a rule of the band itself (A3C: a raised or lowered band, or a hollow one, can't be edged; a cotised pile and the rest are hosts), `outlineTinctureChoices`
+by the trim's own contrast with the field (`trimTinctureIssues`; a band's own tincture is judged apart, `groupBodyTinctureIssues`), and a violation's one-click
+fix may change a trim's tincture. A new outline starts in the band's own tincture for cotises (an edging in another), the first that stands out where it
+lies; `setOrdinaryLine` carries cotises that had followed the band's line, and `setOrdinary` keeps an outline the new band may have. An outlined band
+lying across everything is the gap `ordinary-treatment:on-overall`.
+
+`lines.ts` holds the
+registry (the lines, their SENA App M2 groups and `lineDiffers`, the hosts each may go on, how many independent edges each host has,
+what a bare line means on it, and the blazon words and spellings) and one periodic-edge generator: each line has an original
+placeholder profile, one period that is fitted a whole number of times to the visible length of an edge (within SENA A2C1's repeat
+bounds), centred on an anchor and drawn only over a span, straight beyond it. A band's two edges share the period and anchor, so
+wavy, dancetty and counter-embattled edges run in phase and indented, bretessed and engrailed ones mirror. With + away from a band,
+engrailed arcs bite into it and their points face out, invected arcs bulge out. `contour.ts` builds a closed
+outline from straight, curved or lined edges; with every edge plain it gives exactly the polygon paths drawn today.
+A line of the field is laid once along its whole length (`LaidLine`: one run, its period fitted to the chord the shape shows), and
+each region edge on it draws its piece of that run, either way round (`runAlong`, `reversedRun`), so the parts meet exactly. Its
+features face chief, or dexter on an upright line (RULES-C §A.2: per fess engrailed has its points up); a one-sided line (engrailed,
+invected, indented, bretessed) is moved back half its depth so it straddles where the plain line runs; per chevron's limbs, per
+saltire's lines and quarterly's lines break at a period's end where they meet. A barry, paly or bendy field draws every stripe
+boundary with the same line in phase, so the stripes keep one width (the depth at most 0.8 of a stripe). With a complex line,
+`partIndexAt` tests the drawn regions. Rules: a line its host can't take (dancetty on a division, enarched or ployé off their hosts)
+and SENA App H (a complex line between sable and azure or sable and purpure; one between two colours or two metals with a charge over
+it) are structure issues (`line`); per fess with a chief is refused (A3D1c) only when the two lines could be one fess
+(`couldBeOneFess`); a change of style of half the partition lines is a distinct change (`field-line`, A5G1c). The blazon writes the
+line after the division ("Per pale wavy argent and azure", "Quarterly per fess embattled Or and gules", "Barry wavy of eight …"), the
+signature after the division or variation and its pieces (`per-pale~wavy(…)`, `quarterly~plain/embattled(…)`).
+
+The library also draws **lines on the ten ordinaries** (`ordinary-geometry.ts`); `support.ts` still gaps them
+(`line-of-partition:<line>`) until the builder offers them. Each lined edge is laid on a *course*: a band's two edges on its middle line,
+centred on the chord the shape shows; each chevron limb, cross or saltire arm and pile side out from where they meet, its first period a
+line depth (or what the angle needs) clear of the corner, so features never collide there. A band's `a` edge is its upper (a pale's
+dexter) edge; mirrored profiles put their + side outside each edge (indented teeth and bretessed merlons stand out of both edges,
+engrailed arcs bite in), the others put it toward chief on both edges so they run in phase (wavy, counter-embattled keep the band's
+width); a pile's sides mirror each other. A band with a complex line (fess, pale, bends, chevron, cross and saltire arms) is drawn 20 %
+wider; a line is cut at most 0.3 of the ordinary's width deep; enarched and ployé bow the band without widening it. The bordure's line
+runs round its inset as one ring (`polylineEdgeCommands` on a closed polyline), a whole number of periods from the top middle, features
+toward the field. Envelopes move each lined edge by how far its profile swings (`profileSwing`). Rules: two different lines on one
+ordinary, a jagged line on one edge of a band alone, dancetty off a two-sided band and enarched/ployé off their hosts are `line` issues;
+another line on one edge alone is a step from core practice (`coreSteps`), and two steps are refused (`core-practice`, SENA A2B, App G);
+an ordinary with a complex line may not share a multiply divided field's tincture. A change of edge, compared edge by edge with
+`lineDiffers`, is a change of type (A5G4: one DC with any other change of type, never an SC). Words: `lineWords` ("a fess embattled",
+"a fess embattled counter-embattled", "a fess wavy on the lower edge", "on a pale wavy sable three roses argent"); signature
+`o.fess~embattled/plain`.
+
+**The lines tail** (C14; RULES-C §A.1, §A.5, F2): `triangular`, `rompu` and `bevilled` are lines of group `other` (each differs from every other line)
+and *single* profiles, one feature across the whole edge like enarched and ployé. `lineAllowed` restricts them to one kind of host each:
+triangular to a chief (its lower edge two straight lines meeting at a point toward base), rompu to a chevron (upright or upside down; `rompu`
+is a model `Line`, one edge value; since the UI review the chevron's outline is broken — `broken` in `ordinary-geometry.ts` — not an edge
+profile), bevilled to a bend, a bend sinister, per bend and per bend sinister (the line broken at its middle by a short palewise step, the
+half beyond it offset). So the
+edge row (`lineChoices`, which lists only the lines the host may carry) shows `ordinary-edge-triangular` (a chief card: `chief-edge-triangular`),
+`ordinary-edge-rompu`, `ordinary-edge-bevilled` and `field-edge-bevilled` on those hosts and nowhere else; ployé is now also a pile's
+(`ordinary-edge-ploye`). Rules (`structure.ts`): triangular and rompu take no further line, so a rompu chevron's cotises can't carry one
+(`NO_FURTHER_LINE`); rompu and bevilled ordinaries are never fimbriated (a broken outline, A3C); a bend bevilled with charges set around it is a
+step from core practice (`bevilled-with-charges`, App G); a field per bend bevilled is exempt from the App H dark pairs until a charge overlies
+the line (the charge rule 7 still applies). Cotises that followed the band's line go plain when the band takes one of these. The SCA tooling
+derives the tagger's line words from `LINE_SPELLINGS` (`LINES` in `gap-terms.ts`, apart from the words `gaps.ts` reads by context: potenty,
+arrondi); "beviled" and "bevelled" are bevilled, "rompú" rompu.
+
+**Polish of the phase-C controls** (C15): the default flow is unchanged (three steps; the Background and Band steps each gain one closed row,
+**More divisions and edges…** / **More shapes and edges…**, `field-shape-more` / `ordinary-shape-more`, whose body, previews included, is drawn only
+while it is open). The tile pictures are resolved once (`BuilderSteps.tsx` `tileIcon`, `EdgePicker.tsx` `lineIcon`) so a re-render never resolves
+one again. The edge chips (`<testid>-edge-<line>`) come in the library's order of how often the O&A uses the lines (`DRAWN_LINES`), the common ones
+(`COMMON_LINES`: plain, embattled, wavy, engrailed, indented, rayonny, invected, dovetailed) first, then a dashed break (`icon-grid-break`, no
+nested disclosure) after those the host takes, and the rest. A collapsed step's summary says the
+line, toggles (in the toggle row's order, from `SHAPE_TOGGLES` and `toggledOn`) and outline in words ("Diagonal band ↘, upside down, cotised in white, embattled, gold"). Every radio group has exactly one tab stop —
+the checked option, else the first allowed one — and arrow keys move through them; toggles are `aria-pressed` buttons; a blocked option opens
+the explainer instead of applying. `test/builder-edges.test.ts` is the reachability oracle for the edge row (every drawn line × every drawn
+division, counted variation, ordinary, and a chief or bordure beside a fess: offered, allowed exactly when some tincture makes the design pass
+`unsupportedIssues`, `structuralIssues` and `tinctureIssues`, and choosing it gives that design; edges survive a change of division or band; toggles,
+outlines and counts held to the same oracle). The journey has the state `ordinary-embattled-cotised`.
+
+**Bands under a chief, a wider charged bordure, a charge in the corner beside a bend** (C16; RULES-C §F.1–F.3): a fess (and bars), cross,
+saltire or pall beside a chief or a base (not a point pointed, which leaves the field beside it free) is centred in the field they leave and drawn 0.8 as wide (`bandPlace` in
+`ordinary-geometry.ts`: from the chief, or where the shape is first 60 wide, to the base, or where it narrows to less than 60 — on the heater a fess
+under a chief lies at y 66 and is 24 wide), so three charges fit between a fess under a chief; pales, bends, piles and chevrons keep the fess point
+(a chevron's apex already clears a chief). The frame is the same for drawing, the rule of tincture and layout (`frameBeside`); charges between or on
+such a band are moved with it (`freeFieldOf`, `moveIn` in `layout.ts`), and a band so moved no longer lies on its division's line (a fess on per
+fess under a chief is judged where it lies). A chief or base the builder adds is offered only when the band it moves still passes the rule of
+tincture. A bordure that carries charges is drawn 15 wide (`OrdinarySpec.charged`, each shape's `chargedInset`; the peripherals
+`charged-bordure` and `chief-charged-bordure` keep field charges inside it), so eight charges on it are about 10 on the heater (5 to 7 on a plain
+one); charges on a chief within one are read against the chief and may be as small as 9. One charge set in chief or in base beside a bend (bendlets,
+bend sinister, baton) stands in the corner the bend leaves free (`cornerBesideBend`): blazoned "and in sinister chief a rose" ("in dexter chief"
+beside a bend sinister, "in dexter base" or "in sinister base" for one in base), glossed "in the top-right corner"; the design keeps `position:
+'chief'`, and two or more stand along the top as before.
 
 ## Tinctures and hatching
 
@@ -327,7 +632,7 @@ There is no cap on groups. A fieldless badge (`kind: 'badge'`, `field: null`; se
 proper on charges without a palette, the other field treatments, lines of partition and charge attributes (form, facing, orientation,
 parts, holds); the builder does not draw those yet, so `resolve` accepts them and `support.ts`
 reports each as an `unsupported` issue naming the gap (the SCA test files records under the same
-tags). Furs (the ermine, vair and potent families, with `X ermined Y` and `vairy X and Y`) are drawn as small generated patterns (`patterns.ts`); the hatching option leaves them unhatched. Input may be loose (shorthand paints, defaults omitted): `resolve` fills every default
+tags). Lines read as blazon does (`lines.ts`): `{a}` alone is what the bare word means on its host ("a fess embattled" is its upper edge, "a fess wavy" both), `b` is a second edge only on bands, the orle and tressure and quarterly's per fess line, a host with one line must have `b = a`, and a point, label, fret or mount takes none. Furs (the ermine, vair and potent families, with `X ermined Y` and `vairy X and Y`) are drawn as small generated patterns (`patterns.ts`); the hatching option leaves them unhatched. Input may be loose (shorthand paints, defaults omitted): `resolve` fills every default
 (SENA Table 7 arrangements, the SCA's default postures) and puts the groups in canonical order, so
 equivalent inputs have one JSON form and one signature. The builder's own space is the
 "simple space": one ordinary, one picture group (on the field, between the ordinary, or on it),
@@ -381,7 +686,8 @@ tincture. It then computes everything itself:
 - **Conflict key.** A different field partition or primary group is always a substantial change, so
   the check only needs the entries that share both. Each row stores them (`partition_key`,
   `primary_key`, NULL when the field is the primary, `*` when two groups of charges are together the
-  primary, which may share a type with any entry that has a primary: `keysMayConflict`), and the Worker loads just those candidates
+  primary, which may share a type with any entry that has a primary, `**` (`ANY_PRIMARY`, with a NULL partition) when three or more
+  diminutives are also read as stripes and may conflict with any entry at all: `keysMayConflict`), and the Worker loads just those candidates
   through the `arms_registry_primary_partition` index, in registration order, and reports the first entry
   that is too close. A fieldless badge has a NULL `partition_key`: with no field it differs from armory that has one by
   one distinct change only (A5G1e), so a NULL partition on either side matches any partition.
@@ -705,21 +1011,44 @@ npm run dev
 # Production build → dist/
 npm run build
 
-# Typecheck the SPA (incl. the store test), the Worker (incl. the lib and Worker tests) and the SCA test tooling
+# Typecheck the SPA, the Worker (incl. the lib and the Workers-runtime tests) and every other test file and the SCA tooling
+# (tsconfig.test.json: test/**/*.ts, in Node as they run)
 npm run typecheck
 
-# Run all tests: heraldry library, Worker/D1 (vitest-pool-workers, local Miniflare D1), store seam,
-# and the SCA armorial test (plain Node; `npx vitest run --project sca` alone)
+# Run all tests in three vitest projects (vitest.config.ts): `workers` (test/worker.test.ts and test/migrations.test.ts,
+# the only files that use the D1 binding: vitest-pool-workers, local Miniflare D1), `library` (every other test file: the
+# heraldry library and store seam, in plain Node, files in parallel) and `sca` (the SCA armorial test, plain Node;
+# `npx vitest run --project sca` alone)
 npm test
 
-# Rewrite the SCA ignore list (test/fixtures/sca/ignored.json) after changing the widget or test/sca/
+# Rewrite the SCA ignore list (test/fixtures/sca/ignored.json) after changing the widget or test/sca/. This is also the
+# authoritative FULL sweep: every check on every record, nothing sampled (`npm test` samples the expensive ones, below)
 npm run sca:ignore
 
 # Regenerate public/favicon.ico from public/favicon.svg
 npm run favicon
 ```
 
-- `test/model.test.ts`, `arrangement`, `layout`, `render`, `blazon`, `gloss`, `plain-words`, `tincture`, `counterchange`, `party-paint`, `fur`, `variation`, `treatment`, `semy`, `readability`, `tags`, `search*`, `validate`, `uniqueness`, `sample-registry`: the pure library, by topic. The validation examples (`test/validation-cases.ts`) are shared.
+- `test/builder-edges.test.ts`: the edge-row reachability oracle (see "Polish of the phase-C controls").
+- `test/ordinary-geometry.test.ts`: ordinaries and division regions built from contours draw exactly what phase B drew (body, fill rule, centre, box and samples of every ordinary in every shape, captured in `test/fixtures/ordinary-geometry.json`), an ordinary's envelopes (the body's rings when plain or bowed, widened and narrowed by how far its lines swing otherwise), `partIndexAt` agrees with the analytic test, a division's regions partition the field, and an ordinary layer with only a body renders the phase-B markup.
+- `test/builder.test.ts` "lines on the band, the top band and the border" and `test/builder-steps.test.ts` "More shapes and edges…": the band's line and edge-side transitions, the lines each host offers, `setOrdinary` keeping a line, and the closed disclosures.
+- `test/ordinary-lines.test.ts`: lines on ordinaries (the lines tail — triangular, rompu, bevilled, a pile ployé: geometry, hosts, rules, words, conflict — too) — widened bands whose two edges align; counter-embattled vs bretessed; one-edge lines; symmetric cross and saltire arms; the bordure's ring in every shape; every allowed line on every drawn ordinary within its envelopes; charges between and on lined ordinaries (counts 1–3; heater, a rotating fifth elsewhere); the rules (one line per ordinary, jagged lines on both edges, dancetty, core-practice steps, A3D1c, A3B4b); A5G4 (RULES-C §B.7); words, gloss and signature.
+- `test/builder.test.ts` "the outline of the band" and `test/builder-steps.test.ts`: the outline, its tincture and its cotise line, "Hollow", and the controls inside the closed disclosure.
+- `test/ordinary-outlines.test.ts`: cotises, fimbriation and voiding — the geometry on every shape (cotises parallel at a quarter of the band and a cotise apart, one to three a side, their own line following the band's; fimbriation round the body under it; voiding evenodd), render and hatching of the parts, the rules (A3C hosts and roles, contrast of the trims, the field's tincture under fimbriation, the core-practice step), the conflict readings (cotises as a group, RULES-C §B.7, voided and fimbriated read two ways), words, gloss and signature.
+- `test/divisions-three.test.ts`: per pall, per pall inverted and the tierced divisions tile every shape in three (plain, wavy, embattled) with `partIndexAt` following the regions, part order, the three-part tincture rules (A3B3b, tierced, "that is a pale", a chief on per pall, App H, counterchanging a gap), Table 7, words, gloss, signature, conflict by area and categories, the builder's three parts and their swatches.
+- `test/divisions-more.test.ts`: per chevron inverted, per chevron throughout and gyronny (6, 8, 12, arrondi) tile every shape and `partIndexAt` follows the regions, a gyronny's wedges alternate from the dexter fess line, words and signatures, the builder's `setDivision`/`setDivisionPieces` and the lines kept, conflict (per chevron throughout = per chevron, the pile reading, pieces, arrondi), counterchange over gyronny.
+- `test/review-rules.test.ts`: the SENA corrections after the phase-C review (R-1 … R-11), each read from a blazon by the SCA matcher.
+- `test/review-visual.test.ts`: the drawing fixes after the phase-C review (U-1 … U-6, K-22) on every shape, and the shape picker's note (U-4).
+- `test/review-conventions.test.ts`: the convention fixes after the phase-C review that show (the cotises of a couped band inside every shape, Thin blocked with an outline, the band summary, line labels, outline and count labels, the SCA tooling's words).
+- `test/review-code.test.ts`: the code fixes after the phase-C review (K-1 … K-27); the meeting lines of the phase-C divisions are tiled and checked for self-crossing in `test/lines-field.test.ts`.
+- `test/diminutives.test.ts`: bars, pallets, bendlets (sinister) and chevronels two to four at a time and the baton — evenly spaced and inside every shape, enhanced and turned groups, below a chief; a single one canonicalised to its ordinary (a saltorel a saltire couped), the gaps kept; words and signature; conflict (number, the ordinary's type, three or more read as the variation with the `ANY_PRIMARY` key, two never); bendlets enhanced with charges a step from core practice; charges between a group; the Thin toggle and count row.
+- `test/central-and-edge-shapes.test.ts`: the pall, pall inverted, fret, label, mount and trimount — drawn inside every shape (lined, voided and fimbriated too), the pall's arms reaching the chief corners and the inverted one's the base, three between and one or three on a pall, the fret's woven pieces never overlapping, the roles, the rules (voided and fimbriated pall, a cotised pall and a fret refused, CC-8), conflict (pall against pall inverted, mount against trimount), the words and the toggle that turns a pall over.
+- `test/peripherals.test.ts`: the base, point pointed, canton, quarter and gyron (and sinister forms), and (C9) the orle, double and triple tressure, flaunches, gore (and gore sinister) and the refused dexter and sinister points — each shape's own inset for the rings, mirrored forms, charges kept inside an orle and out of flaunches and a gore, the `side-point` rule, orle ≡ tressure, flaunches a pair, the words — drawn inside every shape, the sinister forms mirrored, the frame a base leaves the other ordinaries; charges on the field, between, in chief or base kept out of them (alone and several at once; heater exhaustive, other shapes in turn) and still legible beside them; the contexts filled from the design; the rules (field-primary, chief and base alike, A6C1, App I4, A3D1c at the foot), conflict (canton ≡ quarter, base vs point pointed, sinister a DC of position), blazon joiners, gloss and signature. The builder side (the More shapes row, `peripheral-<i>` places and cards) is in `places.test.ts`, `builder.test.ts`, `builder-steps.test.ts` and `builder-layers-reach.test.ts` (`generatedPeripheralDesigns`).
+- `test/ordinary-treatments.test.ts`: inverted, couped, throughout, enhanced and abased — the geometry on every shape (reflection, couped ends inside the shape and straight on lined bands, throughout touching the edge, a band moved not widened), the conflict readings (A5E5c, A5G7, A5G4, none for position), the rules (contradictions, hosts, a charged chevron inverted abased), the layouts around and on them, the words, the toggles and `setOrdinary`.
+- `test/lines-field.test.ts`: lines on the field — every partition line of every allowed pair is drawn with its profile and at least two periods inside each shape; the regions of every allowed line on every phase-B division and striped variation tile each shape (heater exhaustively, a rotating sixth elsewhere) and `partIndexAt` follows them; one line where two regions meet; point direction and straddling; counterchanging on a wave; the verdict in every shape; App H, A3D1c and the hosts a line may go on; A5G1c (RULES-C §B.7); the gloss.
+- `test/signature.test.ts`: the signature is unchanged for designs phase B could draw (pinned, `test/signature-cases.ts`), one-to-one over lined and generated designs, and every id ends in a letter.
+- `test/lines.test.ts`: the line registry (SENA App M2 groups, the hosts each line may go on, the edges each host has and what a bare line means on it) and the periodic-edge generator and contours (whole periods within the repeat bounds on every shape, features inside their span, bands' edges in phase or opposed, plain contours byte-identical to the polygons the phase-B shapes draw, captured in `test/fixtures/straight-contours.json`).
+- `test/model.test.ts`, `arrangement`, `layout` (including ordinaries that aren't plain: the generic engine keeps their charges clear of or inside the envelopes), `render`, `blazon`, `gloss`, `plain-words`, `tincture`, `counterchange`, `party-paint`, `fur`, `variation`, `treatment`, `semy`, `readability`, `tags`, `search*`, `validate`, `uniqueness`, `sample-registry`: the pure library, by topic. The validation examples (`test/validation-cases.ts`) are shared.
 - `test/worker.test.ts`: every API route. The migrations are applied to a local D1 before it runs; it covers:
   - create, duplicate, too-close and rule-of-tincture rejections, with forged signatures ignored
   - text sanitisation and caps, Discord normalisation and the `contact_discord` CHECK
@@ -750,7 +1079,19 @@ npm run favicon
   Armorial (`test/fixtures/sca/oanda.db`, committed unmodified for tests only; it never reaches
   `dist/`). Each record either matches a design the widget blazons identically, would register,
   draws and lets the Design tab build, or is on the ignore list with the gaps that stop it. See
-  `test/fixtures/sca/README.md`.
+  `test/fixtures/sca/README.md`. To keep `npm test` fast as records start passing, it runs the cheap checks (match,
+  assess, blazon, render) on every record but the expensive ones on a seeded, rotating sample (`test/sca/sample.ts`):
+  the builder-click replay (`builderPath`, ~11 ms a design) on every design with a feature no earlier design has (so
+  every ordinary, charge, division, line, treatment and layout is replayed on every run) plus ~120 designs picked by a hash
+  of the UTC date (or `SCA_SAMPLE_SEED`), and the gap tagger's re-run on the ignored records (the ratchet's "still has the
+  gap it is filed under") for the first record of each gap category plus one in twelve. "An ignored record that now passes"
+  and "a new failure" are still checked on every record, by the match and the cheap checks. **`npm run sca:ignore` is the
+  authoritative full sweep** (it never samples, and fails on any widget bug in any record); the final gate runs it, and
+  `SCA_FULL=1 npx vitest run --project sca` makes the test do the same. Sampled failures print the seed to reproduce.
+  The same seed (`SCA_SAMPLE_SEED`, else the date; `test/rotation.ts`) and `SCA_FULL=1` drive the other sampled sweeps of the library
+  project — geometry-fit's and lines-field's shapes other than the heater, the corner and edge shapes' keep-out sweeps, half of
+  builder-layers-reach's generated field-line and corner-shape designs, an eighth of prefilter's edited entries per probe and half of its
+  generated pairs — and their failures print it too.
 
 No test touches the network or a real Cloudflare account.
 

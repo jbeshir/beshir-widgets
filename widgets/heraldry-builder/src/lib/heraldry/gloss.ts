@@ -5,10 +5,13 @@ import { joinAnd, numberWord } from './words';
 import { CHARGES, postureGloss } from './charges';
 import { furGloss } from './fur';
 import { treatedGloss } from './treatment';
-import { asParty, asSemy, asTreated, asVariation, fieldParts, fieldTinctures, notSupported, type Arrangement, type Design, type Group, type Paint, type Position, type SemyPaint } from './design';
-import { DEFAULT_PIECES, type Division, type Variation } from './divisions';
-import { type OrdinaryType } from './ordinaries';
-import { aroundWords, betweenWords, coPrimaries, isHalfPosition, primaryCharges, type HalfPosition, type Layout } from './arrangement';
+import { asParty, asSemy, asTreated, asVariation, fieldParts, fieldTinctures, notSupported, type Arrangement, type Cotises, type Design, type Group, type Lines, type Ordinary, type Paint, type Position, type SemyPaint } from './design';
+import { edgeNames, ordinaryEdgeHost, type ComplexLine, type EdgeName, type Line } from './lines';
+import { LINE_LOOK } from './plain-words';
+import { DEFAULT_GYRONNY_PIECES, DEFAULT_PIECES, type Division, type Variation } from './divisions';
+import { ORDINARY_KIND, isDiminutive, type OrdinaryType } from './ordinaries';
+import { aroundWords, betweenHost, betweenWords, contextOf, coPrimaries, cornerBesideBend, isHalfPosition, primaryCharges, type BetweenHost, type HalfPosition, type Layout, type QuarterPosition } from './arrangement';
+import { specOf } from './ordinary-geometry';
 
 const ORDINARY_GLOSS: Partial<Record<OrdinaryType, string>> = {
   fess: 'horizontal band across the middle',
@@ -21,6 +24,51 @@ const ORDINARY_GLOSS: Partial<Record<OrdinaryType, string>> = {
   chief: 'band across the top',
   bordure: 'border around the edge',
   pile: 'downward-pointing wedge from the top',
+  base: 'band across the bottom',
+  point: 'curved point rising from the bottom',
+  canton: 'square in the top-left corner',
+  quarter: 'quarter of the shield in the top-left corner',
+  gyron: 'triangle from the top-left corner to the middle',
+  orle: 'inner border',
+  flaunches: 'pair of curved side pieces',
+  gore: 'curved wedge from the left',
+  pall: 'Y-shaped band',
+  'pall-inverted': 'upside-down Y-shaped band',
+  label: 'bar across the top with three hanging tabs',
+  fret: 'diamond woven with two crossing stripes',
+  mount: 'hill rising from the bottom',
+  trimount: 'three hills rising from the bottom',
+  'point-dexter': 'triangle in the bottom-left corner',
+  'point-sinister': 'triangle in the bottom-right corner',
+  baton: 'short thin diagonal band from top-left to bottom-right',
+};
+
+/** Two to four narrow bands, in everyday words (`DIMINUTIVE_INVERTED_GLOSS` the other way up). */
+const DIMINUTIVE_GLOSS: Partial<Record<OrdinaryType, string>> = {
+  bar: 'thin horizontal bands',
+  pallet: 'thin vertical bands',
+  bendlet: 'thin diagonal bands from top-left to bottom-right',
+  'bendlet-sinister': 'thin diagonal bands from top-right to bottom-left',
+  chevronel: 'thin upside-down V shapes, one inside another',
+};
+const DIMINUTIVE_INVERTED_GLOSS: Partial<Record<OrdinaryType, string>> = { chevronel: 'thin V shapes, one inside another' };
+
+/** The ordinaries in the other top corner or on the other side (sinister), in everyday words. */
+const SINISTER_GLOSS: Partial<Record<OrdinaryType, string>> = {
+  canton: 'square in the top-right corner',
+  quarter: 'quarter of the shield in the top-right corner',
+  gyron: 'triangle from the top-right corner to the middle',
+  gore: 'curved wedge from the right',
+  baton: 'short thin diagonal band from top-right to bottom-left',
+};
+
+/** A double or triple tressure, in everyday words. */
+const TRESSURE_GLOSS: Readonly<Record<number, string>> = { 2: 'pair of thin inner borders', 3: 'set of three thin inner borders' };
+
+/** The ordinaries turned upside down, in everyday words. */
+const INVERTED_GLOSS: Partial<Record<OrdinaryType, string>> = {
+  chevron: 'V shape',
+  pile: 'upward-pointing wedge from the bottom',
 };
 
 /** "a" / "an" chosen from the word that follows (colour words all start with consonants today). */
@@ -28,17 +76,36 @@ function article(next: string): string {
   return /^[aeiou]/i.test(next) ? 'an' : 'a';
 }
 
-/** How a division splits a shape, with the plain word of each part: "split vertically, blue on the left and gold on the right". */
-function divisionGloss(division: Division, c1: string, c2: string): string {
+/** " by a wavy line" for a complex line, nothing for a plain one. */
+const byLine = (l: Line): string => (l === 'plain' ? '' : ` by ${article(LINE_LOOK[l])} ${LINE_LOOK[l]} line`);
+
+/** Quarterly's lines in words: " by wavy lines", ", the up-and-down line wavy", nothing when both are plain. */
+function quarterlyLines({ a, b }: Lines): string {
+  if (a === b) return a === 'plain' ? '' : ` by ${LINE_LOOK[a]} lines`;
+  const parts = [a !== 'plain' ? `the up-and-down line ${LINE_LOOK[a]}` : '', b !== 'plain' ? `the across line ${LINE_LOOK[b]}` : ''].filter(Boolean);
+  return `, ${parts.join(' and ')}`;
+}
+
+/** How a division splits a shape, with the plain word of each part in part order: "split vertically by a wavy line, blue on the left and gold on the right". */
+function divisionGloss(division: Division, lines: Lines, pieces: number | null, colours: readonly string[]): string {
+  const by = byLine(lines.a), of = lines.a === 'plain' ? '' : ` of ${LINE_LOOK[lines.a]} lines`, byLines = lines.a === 'plain' ? '' : ` by ${LINE_LOOK[lines.a]} lines`;
+  const [c1, c2, c3] = colours;
   switch (division) {
-    case 'per-pale': return `split vertically, ${c1} on the left and ${c2} on the right`;
-    case 'per-fess': return `split horizontally, ${c1} on top and ${c2} below`;
-    case 'per-bend': return `split diagonally from top-left to bottom-right, ${c1} above and ${c2} below`;
-    case 'per-bend-sinister': return `split diagonally from top-right to bottom-left, ${c1} above and ${c2} below`;
-    case 'per-saltire': return `divided by an X, ${c1} top and bottom and ${c2} left and right`;
-    case 'per-chevron': return `divided by an upside-down V, ${c1} above and ${c2} below`;
-    case 'quarterly': return `divided into four quarters, ${c1} top-left and bottom-right, ${c2} top-right and bottom-left`;
-    default: return notSupported({ category: 'division', detail: division });
+    case 'per-pale': return `split vertically${by}, ${c1} on the left and ${c2} on the right`;
+    case 'per-fess': return `split horizontally${by}, ${c1} on top and ${c2} below`;
+    case 'per-bend': return `split diagonally from top-left to bottom-right${by}, ${c1} above and ${c2} below`;
+    case 'per-bend-sinister': return `split diagonally from top-right to bottom-left${by}, ${c1} above and ${c2} below`;
+    case 'per-saltire': return `divided by an X${of}, ${c1} top and bottom and ${c2} left and right`;
+    case 'per-chevron': return `divided by an upside-down V${of}, ${c1} above and ${c2} below`;
+    case 'per-chevron-inverted': return `divided by a V${of}, ${c1} above and ${c2} below`;
+    case 'per-chevron-throughout': return `divided by an upside-down V${of} reaching the top edge, ${c1} above and ${c2} below`;
+    case 'gyronny': return `divided into ${pieces ?? DEFAULT_GYRONNY_PIECES} wedges meeting in the middle${lines.a === 'plain' ? '' : ` (the dividing lines are ${LINE_LOOK[lines.a]})`}, alternately ${c1} and ${c2}, with ${c1} in the wedge above the middle line on the left`;
+    case 'quarterly': return `divided into four quarters${quarterlyLines(lines)}, ${c1} top-left and bottom-right, ${c2} top-right and bottom-left`;
+    case 'per-pall': return `divided in three by a Y${of}, ${c1} at the top, ${c2} on the left and ${c3} on the right`;
+    case 'per-pall-inverted': return `divided in three by an upside-down Y${of}, ${c1} on the left, ${c2} on the right and ${c3} at the bottom`;
+    case 'tierced-per-pale': return `divided into three upright stripes${byLines}, ${c1} on the left, ${c2} in the middle and ${c3} on the right`;
+    case 'tierced-per-fess': return `divided into three level stripes${byLines}, ${c1} on top, ${c2} in the middle and ${c3} below`;
+    default: return division satisfies never;
   }
 }
 
@@ -55,14 +122,15 @@ function partGloss(p: Paint): string {
 }
 
 /** How a variation covers a shape, with the plain word of each tincture: "6 horizontal stripes, blue on top alternating with gold". */
-function variationGloss(variation: Variation, pieces: number | null, c1: string, c2: string): string {
+function variationGloss(variation: Variation, pieces: number | null, line: Line, c1: string, c2: string): string {
   const n = pieces ?? DEFAULT_PIECES;
+  const edged = line === 'plain' ? '' : ` with ${LINE_LOOK[line]} edges`;
   switch (variation) {
-    case 'barry': return `${n} horizontal stripes, ${c1} on top alternating with ${c2}`;
-    case 'paly': return `${n} vertical stripes, ${c1} on the left alternating with ${c2}`;
-    case 'bendy': return `${n} diagonal stripes running from top-left to bottom-right, ${c1} at the top alternating with ${c2}`;
-    case 'bendy-sinister': return `${n} diagonal stripes running from top-right to bottom-left, ${c1} at the top alternating with ${c2}`;
-    case 'chevronny': return `${n} upside-down V stripes, ${c1} at the top alternating with ${c2}`;
+    case 'barry': return `${n} horizontal stripes${edged}, ${c1} on top alternating with ${c2}`;
+    case 'paly': return `${n} vertical stripes${edged}, ${c1} on the left alternating with ${c2}`;
+    case 'bendy': return `${n} diagonal stripes running from top-left to bottom-right${edged}, ${c1} at the top alternating with ${c2}`;
+    case 'bendy-sinister': return `${n} diagonal stripes running from top-right to bottom-left${edged}, ${c1} at the top alternating with ${c2}`;
+    case 'chevronny': return `${n} upside-down V stripes${edged}, ${c1} at the top alternating with ${c2}`;
     case 'checky': return `a chequerboard of ${c1} and ${c2} squares, ${c1} in the top-left corner`;
     case 'lozengy': return `a lattice of ${c1} and ${c2} diamonds`;
     case 'fusily': return `a lattice of tall narrow ${c1} and ${c2} diamonds`;
@@ -76,13 +144,14 @@ function variationGloss(variation: Variation, pieces: number | null, c1: string,
 function fieldGloss(d: Design): string {
   if (d.kind === 'badge') return 'No background';
   const varied = asVariation(d.field);
-  if (varied) return `A shield of ${variationGloss(varied.variation, varied.pieces, TINCTURE_GLOSS[varied.parts[0].t], TINCTURE_GLOSS[varied.parts[1].t])}`;
-  const [c1, c2] = fieldParts(d).map(partGloss);
+  if (varied) return `A shield of ${variationGloss(varied.variation, varied.pieces, varied.lines.a, TINCTURE_GLOSS[varied.parts[0].t], TINCTURE_GLOSS[varied.parts[1].t])}`;
+  const colours = fieldParts(d).map(partGloss);
+  const c1 = colours[0];
   if (d.field.k === 'tincture') return `${article(c1) === 'an' ? 'An' : 'A'} ${c1} shield`;
   if (d.field.k === 'semy') return `A shield of ${c1}`;
   if (d.field.k === 'fur' || d.field.k === 'treated') return `A shield covered in ${c1}`;
   if (d.field.k !== 'divided') return notSupported({ category: 'field-treatment', detail: d.field.k });
-  return `A shield ${divisionGloss(d.field.division, c1, c2)}`;
+  return `A shield ${divisionGloss(d.field.division, d.field.lines, d.field.pieces, colours)}`;
 }
 
 /** "in the opposite colours of the field (blue on gold, gold on blue)" for counterchanged groups on a divided field. */
@@ -100,9 +169,9 @@ function paintClause(d: Design, p: Paint): string | null {
   const semy = asSemy(p);
   if (semy) return `in ${TINCTURE_GLOSS[semy.ground.t]}, strewn with ${strewnGloss(semy)}`;
   const varied = asVariation(p);
-  if (varied) return `in ${variationGloss(varied.variation, varied.pieces, TINCTURE_GLOSS[varied.parts[0].t], TINCTURE_GLOSS[varied.parts[1].t])}`;
+  if (varied) return `in ${variationGloss(varied.variation, varied.pieces, varied.lines.a, TINCTURE_GLOSS[varied.parts[0].t], TINCTURE_GLOSS[varied.parts[1].t])}`;
   const party = asParty(p);
-  return party ? divisionGloss(party.division, TINCTURE_GLOSS[party.parts[0].t], TINCTURE_GLOSS[party.parts[1].t]) : null;
+  return party ? divisionGloss(party.division, party.lines, null, party.parts.map((x) => TINCTURE_GLOSS[x.t])) : null;
 }
 
 /** A plain colour word for a group's paint, or null for a paint with a clause of its own (see `paintClause`). */
@@ -111,11 +180,44 @@ function colourOf(p: Paint): string | null {
   return p.k === 'counterchanged' || p.k === 'proper' || asSemy(p) || asParty(p) || asVariation(p) ? null : notSupported({ category: 'tincture', detail: p.k });
 }
 
+/** Where an edge of a band lies, as you look at it. */
+const EDGE_GLOSS: Record<EdgeName, string> = { upper: 'top', lower: 'bottom', dexter: 'left', sinister: 'right', outer: 'outer', inner: 'inner', 'pale-line': 'up-and-down', 'fess-line': 'across' };
+
+/** An ordinary's lines in words: " with wavy edges", " with a battlemented top edge", nothing when plain. */
+function ordinaryLines(item: Ordinary): string {
+  const { type, lines: { a, b } } = item;
+  const names = edgeNames(ordinaryEdgeHost(item));
+  if (a === b || names === null) return a === 'plain' ? '' : ONE_EDGE.includes(type) ? ` with ${article(LINE_LOOK[a])} ${LINE_LOOK[a]} edge` : ` with ${LINE_LOOK[a]} edges`;
+  const edge = (l: ComplexLine, name: EdgeName) => `${article(LINE_LOOK[l])} ${LINE_LOOK[l]} ${EDGE_GLOSS[name]} edge`;
+  return ` with ${[a !== 'plain' ? edge(a, names.a) : '', b !== 'plain' ? edge(b, names.b) : ''].filter(Boolean).join(' and ')}`;
+}
+
+/** The ordinaries whose line runs along one edge: the chief's lower edge, the bordure's inner one, the base's upper one, the gore's curve. */
+const ONE_EDGE: readonly OrdinaryType[] = ['chief', 'bordure', 'base', 'gore'];
+
 function ordinaryGloss(d: Design, g: Group): string {
   if (g.item.k !== 'ordinary') throw new RangeError('Not an ordinary.');
-  const body = ORDINARY_GLOSS[g.item.type] ?? notSupported({ category: 'ordinary', detail: g.item.type });
+  const { type, mods } = g.item;
+  const inverted = mods.includes('inverted');
+  const counted = isDiminutive(type) && g.count > 1;
+  const shape = (counted ? (inverted ? DIMINUTIVE_INVERTED_GLOSS : DIMINUTIVE_GLOSS)[type]
+    : type === 'tressure' ? TRESSURE_GLOSS[g.count] : inverted ? INVERTED_GLOSS[type] : mods.includes('sinister') ? SINISTER_GLOSS[type] : ORDINARY_GLOSS[type])
+    ?? notSupported({ category: 'ordinary', detail: type });
+  // "a gold shortened cross", "a blue raised horizontal band …", "a white upside-down V reaching the edges"
+  const before = [mods.includes('couped') ? 'shortened ' : '', mods.includes('enhanced') ? 'raised ' : '', mods.includes('abased') ? 'lowered ' : '', mods.includes('voided') ? 'hollow ' : ''].join('');
+  const body = `${before}${shape}${mods.includes('throughout') ? ' reaching the edges' : ''}${ordinaryLines(g.item)}`;
   const colour = colourOf(g.paint);
-  return colour ? `${article(colour)} ${colour} ${body}` : `${article(body)} ${body} ${paintClause(d, g.paint)}`;
+  const { fimbriated, cotised } = g.item;
+  const edged = fimbriated ? `, edged in ${colourOf(fimbriated) ?? paintClause(d, fimbriated)}` : '';
+  const lead = (first: string) => (counted ? numberWord(g.count) : article(first));
+  return `${colour ? `${lead(colour)} ${colour} ${body}` : `${lead(body)} ${body} ${paintClause(d, g.paint)}`}${edged}${cotised ? cotisesGloss(d, cotised) : ''}`;
+}
+
+/** An ordinary's cotises: ", with a thin gold stripe on each side", ", with two thin wavy blue stripes on each side". */
+function cotisesGloss(d: Design, { count, paint, line }: Cotises): string {
+  const colour = colourOf(paint);
+  const stripes = `${count === 1 ? 'a' : numberWord(count)} thin${line === 'plain' ? '' : ` ${LINE_LOOK[line]}`}${colour ? ` ${colour}` : ''} stripe${count === 1 ? '' : 's'} on each side`;
+  return `, with ${stripes}${colour ? '' : ` ${paintClause(d, paint)}`}`;
 }
 
 /** Where charges set in chief, base or canton in a pattern stand, before the pattern's own words. */
@@ -124,6 +226,11 @@ const PATTERN_PLACE: Partial<Record<Position, string>> = { chief: 'along the top
 const HALF_PLACE: Record<HalfPosition, string> = {
   dexter: 'on the left half', sinister: 'on the right half',
   'dexter-chief': 'in the top-left quarter', 'sinister-chief': 'in the top-right quarter', 'dexter-base': 'in the bottom-left quarter', 'sinister-base': 'in the bottom-right quarter',
+};
+
+/** Where one charge set in chief or in base beside a bend stands, as you look at it: in the corner the bend leaves free. */
+const CORNER_PLACE: Record<QuarterPosition, string> = {
+  'dexter-chief': 'in the top-left corner', 'sinister-chief': 'in the top-right corner', 'dexter-base': 'in the bottom-left corner', 'sinister-base': 'in the bottom-right corner',
 };
 
 /** The words for a layout, or null when it needs none (a lone charge, or charges placed by their host). */
@@ -182,7 +289,9 @@ function chargesGloss(d: Design, g: Group): { text: string; clause: boolean } {
   let text = chargesSubject(g, g.count);
   const clause = paintClause(d, g.paint);
   if (clause) text += ` ${clause}`;
-  const where = layoutGloss({ arrangement: g.arrangement, position: g.position }, g.count);
+  const layout: Layout = { arrangement: g.arrangement, position: g.position };
+  const ctx = contextOf(d, g, null), corner = ctx && cornerBesideBend(ctx, layout);
+  const where = corner ? CORNER_PLACE[corner] : layoutGloss(layout, g.count);
   return where ? { text: `${text}, ${where}`, clause: true } : { text, clause: false };
 }
 
@@ -190,7 +299,7 @@ function chargesGloss(d: Design, g: Group): { text: string; clause: boolean } {
  * Charges set between an ordinary, placed around it: "a white rose on each side", "two white roses,
  * one above and one below". A count the ordinary doesn't take (a structural error) is glossed plainly.
  */
-function betweenGloss(d: Design, g: Group, ordinary: OrdinaryType): { text: string; clause: boolean } {
+function betweenGloss(d: Design, g: Group, ordinary: BetweenHost): { text: string; clause: boolean } {
   const where = betweenWords(ordinary, g.count);
   if (!where) return chargesGloss(d, g);
   const clause = paintClause(d, g.paint);
@@ -239,11 +348,11 @@ function ordinaryWith(d: Design, g: Group, between: Group[]): { text: string; cl
   for (const t of g.charged) {
     const c = chargesGloss(d, t);
     // A band on the edge reads as a phrase of its own: "a gold band across the top carrying three red roses".
-    text += `${type === 'chief' || type === 'bordure' ? ' ' : ', '}carrying ${c.text}`;
+    text += `${ORDINARY_KIND[type] === 'peripheral' ? ' ' : ', '}carrying ${c.text}`;
     clause = c.clause;
   }
   for (const s of between) {
-    const b = betweenGloss(d, s, type);
+    const b = betweenGloss(d, s, betweenHost(specOf(g)));
     text += `${g.charged.length > 0 ? ', and' : ' and'} ${b.text}`;
     clause = b.clause;
   }
