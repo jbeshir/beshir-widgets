@@ -13,10 +13,10 @@
       "label": "onboarding-examples",
       "steps": [
         {"waitFor":"[data-testid=welcome-strip]"},
-        {"waitFor":"[data-testid=examples][open] [data-testid=example-white-star-on-red]"},
-        {"eval":"document.querySelector('[data-testid=example-white-star-on-red]').focus()"}
+        {"waitFor":"[data-testid=examples][open] [data-testid=example-white-tower-on-red-with-border]"},
+        {"eval":"document.querySelector('[data-testid=example-white-tower-on-red-with-border]').focus()"}
       ],
-      "expect": {"selector":"[data-testid=example-white-star-on-red]:focus-visible"}
+      "expect": {"selector":"[data-testid=example-white-tower-on-red-with-border]:focus-visible"}
     },
     {
       "label": "examples-returning",
@@ -32,7 +32,7 @@
       "steps": [
         {"eval":"document.querySelectorAll('[data-testid$=-toggle][aria-expanded=false]').forEach((b) => b.click())"},
         {"click":"[data-testid=ordinary-bend]"},
-        {"click":"[data-testid=example-white-star-on-red]"},
+        {"click":"[data-testid=example-white-tower-on-red-with-border]"},
         {"waitFor":"[data-testid=replaced-notice]"},
         {"eval":"window.scrollTo(0, 0)"}
       ],
