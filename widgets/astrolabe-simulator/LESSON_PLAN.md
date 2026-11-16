@@ -34,7 +34,9 @@ does not determine teaching order.
 The front can demonstrate choosing a latitude plate, rotating the rete and
 rule, aligning engraved positions, and reading the altitude and azimuth grid.
 The back can demonstrate rotating the alidade to a known angle and reading its
-edge against the engraved scales.
+edge against the engraved scales. Times are read where the rule's end over the
+Sun's date point meets the limb's hour scale. This assumes the limb is engraved
+with noon at the top, as on physical 24-hour limbs (SYLLABUS.md FG-2).
 
 The simulator does **not** reproduce a physical sighting. On a physical
 astrolabe, the instrument is suspended vertically and the observer aligns the
@@ -50,29 +52,50 @@ value on the alidade, and teaches how to use the reading from that point on.
 
 ## Course sequence
 
+The full specification is in [SYLLABUS.md](SYLLABUS.md), kept next to this file. It has the concept ledger, the `data-part` vocabulary, each step with its checkpoint and worked values, the feature gaps and the reasons for the order. Where this summary and the syllabus disagree, the syllabus wins.
+
 The guide presents one ordered list rather than dividing operations by face.
 Many real operations move between the front and back, so a face-based taxonomy
-would be misleading.
+would be misleading. The course reaches its keystone, telling the time from the
+Sun's altitude, at lesson 6, and then branches into its variations. Every
+calculation lesson works the same two dates in London (51.5° N): 20 April
+(morning, Sun at 30.4°) and 23 October (afternoon, Sun at 210.1°). The first is
+demonstrated; the learner performs the second.
 
-1. **Understand and configure the astrolabe.** Identify the fixed front plate,
-   moving rete and rule, compare latitude plates, then identify the fixed back
-   scales and independently moving alidade.
-2. **Set the astrolabe for a date and time.** Carry July 14 from the back
-   calendar to ecliptic longitude, set the rule, and orient the rete.
-3. **Read a star and follow its daily path.** Read Sirius and follow it through
-   rising, culmination, and setting.
-4. **Find sunrise, noon, and sunset.** Carry the Sun's engraved date point
-   across the eastern horizon, meridian, and western horizon.
-5. **Read a daylight temporal hour.** Use the point opposite the Sun and the
-   lower unequal-hour curves.
-6. **Transfer a measured altitude to the alidade.** Explain the external
-   physical sighting and set its supplied angle on the simulated back.
-7. **Convert apparent solar time to mean solar time.** Read and apply the
-   equation-of-time loop with its engraved sign convention.
-8. **Measure a height with the shadow square.** Use an external angle and known
-   distance to read a proportional height.
-9. **Read a temporal hour on the double horary quadrant.** Transfer the
-   curve-VI distance between noon and observed-altitude settings.
+1. **Meet the astrolabe: what stays fixed and what turns** (`front.foundations.v1`).
+   Name the mater, limb, throne, plate, rete, star pointers, rule and limb
+   scales, turn the instrument over, name the back scales and move the alidade.
+   No date or time is set.
+2. **Set a measured altitude on the alidade** (`back.measure-altitude.v1`).
+   Explain the physical sighting, then set and read supplied altitudes (30°, 20°).
+3. **Read height and direction on your latitude plate** (`front.local-sky.v1`).
+   Horizon, zenith, almucantars, meridian, azimuth lines, east and west; read
+   two stars; see why the plate must match your latitude.
+4. **Follow a star from rising to setting** (`front.read-star.v1`). The sky
+   turns about the pole; Arcturus rises, culminates and sets; Capella never
+   sets.
+5. **Find the Sun's place for any date** (`back.sun-place.v1`). Carry a
+   calendar date across the back to ecliptic longitude, then find that point on
+   the true edge of the rete's ecliptic.
+6. **Tell the time from the Sun's height** (`solar.time-by-sun.v1`). Choose
+   east or west, set the Sun's date point on its almucantar, lay the rule over it
+   and read local apparent time (08:17 and 14:21).
+7. **Find sunrise, noon, sunset and the length of the day** (`solar.events.v1`).
+8. **Tell the time at night from a star** (`night.time-by-star.v1`). Set the
+   star on its almucantar, then read the time at the Sun's hidden date point.
+9. **Turn astrolabe time into the time on your watch**
+   (`back.equation-time.v1`). Equation of time from the back loop, then
+   longitude and summer time.
+10. **Tell the seasonal (unequal) hour** (`front.unequal-hours.v1`). Day ÷ 12,
+    then the Sun's opposite point on the lower hour lines.
+11. **Set the sky for a date and clock time** (`front.set-sky.v1`). Undo the
+    clock corrections, set the rule and rete, and read what is up.
+12. **Measure a height with the shadow square** (`back.shadow-square.v1`). A side
+    quest available after lesson 2.
+
+The double-horary-quadrant lesson (`back.unequal-hours.v1`) is deferred until
+the alidade can carry a marked distance (see SYLLABUS.md §3.2). Its id is kept
+as an alias.
 
 ## Assessment and test requirements
 
@@ -89,7 +112,15 @@ Each implemented lesson needs:
 - copy tests rejecting learner-visible implementation terms such as
   `fixture`, `deterministic`, `endpoint`, `API`, and `solver`;
 - a second worked value for every calculation lesson so tests do not merely
-  encode the displayed example.
+  encode the displayed example;
+- a concept ledger (`src/tutorial/concepts.ts`, transcribed from SYLLABUS.md
+  §1) with tests that every concept is introduced at exactly one step, used
+  only after it is introduced (in the same lesson or a prerequisite), and mapped
+  to `data-part` ids that the instrument actually renders;
+- a browser test that every step's highlighted parts resolve to rendered
+  elements on that step's face;
+- for each step the learner performs (`your-turn`), a check that fails at the
+  step's starting snapshot, so that the learner must actually move the part.
 
 ## Sources informing the sequence
 

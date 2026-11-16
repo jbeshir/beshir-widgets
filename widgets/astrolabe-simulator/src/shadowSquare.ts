@@ -57,3 +57,38 @@ export function shadowSquareIntersection(alidadeAngleDeg: number): ShadowSquareI
   if (y < top || y > bottom) return null;
   return { x, y, edge: x === left ? 'left' : 'right' };
 }
+
+export interface ShadowSquareNumber {
+  edge: 'left' | 'right' | 'bottom';
+  /** Reading in twelfths: distance from the top (versa) or from the centre line (recta). */
+  value: number;
+  x: number;
+  y: number;
+}
+
+export const SHADOW_SQUARE_NUMBER_STEP = 2;
+
+/**
+ * Engraved numbers on both halves (FG-2c): umbra versa down the left and
+ * right sides, umbra recta outward from the centre along both halves of
+ * the bottom, so either end of the alidade can be read.
+ */
+export function shadowSquareNumbers(): ShadowSquareNumber[] {
+  const { left, right, top, bottom, step } = shadowSquareLayout();
+  const values = Array.from(
+    { length: SHADOW_SQUARE.divisions / SHADOW_SQUARE_NUMBER_STEP },
+    (_, index) => (index + 1) * SHADOW_SQUARE_NUMBER_STEP,
+  );
+  return [
+    ...values.map((value) => ({ edge: 'left' as const, value, x: left, y: top + value * step })),
+    ...values.map((value) => ({ edge: 'right' as const, value, x: right, y: top + value * step })),
+    ...values.map((value) => ({ edge: 'bottom' as const, value, x: -value * step, y: bottom })),
+    ...values.map((value) => ({ edge: 'bottom' as const, value, x: value * step, y: bottom })),
+  ];
+}
+
+/** Reading in twelfths at an intersection, matching `shadowSquareNumbers`. */
+export function shadowSquareReading(intersection: ShadowSquareIntersection): number {
+  const { top, step } = shadowSquareLayout();
+  return intersection.edge === 'bottom' ? Math.abs(intersection.x) / step : (intersection.y - top) / step;
+}

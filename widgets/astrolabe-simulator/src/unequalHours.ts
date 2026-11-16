@@ -72,3 +72,26 @@ export function unequalHourPath(
     .map((point, index) => `${index === 0 ? 'M' : 'L'} ${point.x} ${point.y}`)
     .join(' ');
 }
+
+export const ROMAN_HOURS = ['I', 'II', 'III', 'IV', 'V', 'VI', 'VII', 'VIII', 'IX', 'X', 'XI'] as const;
+
+/**
+ * Declination at which each lower unequal-hour line carries its numeral.
+ * The Cancer (+ε) end of every line is the one nearest the horizon; +16°
+ * keeps the numerals near that end while the lines are still far enough
+ * apart for the engraving to fit (FG-2b).
+ */
+export const UNEQUAL_HOUR_LABEL_DECLINATION = 16;
+
+export interface UnequalHourLabel {
+  hour: number;
+  roman: string;
+  point: ProjectedPoint;
+}
+
+export function unequalHourLabels(latitudeDeg: number, referenceRadius: number): UnequalHourLabel[] {
+  return UNEQUAL_HOUR_LINES.flatMap((hour) => {
+    const point = unequalHourPoint(latitudeDeg, hour, UNEQUAL_HOUR_LABEL_DECLINATION, referenceRadius);
+    return point ? [{ hour, roman: ROMAN_HOURS[hour - 1], point }] : [];
+  });
+}

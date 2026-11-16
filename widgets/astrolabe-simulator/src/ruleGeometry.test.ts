@@ -6,6 +6,9 @@ import {
   EQUATION_LABEL_GAP,
   EQUATION_ZERO_RADIUS,
   FRONT_RULE_HIT_WIDTH,
+  alidadeMinuteScale,
+  fiducialSegments,
+  taperedRulePath,
   counterchangedRulePaths,
   equationOfTimeLabelPosition,
   equationOfTimePoint,
@@ -64,5 +67,96 @@ describe('polar equation-of-time loop', () => {
 
   it('rejects an empty curve when positioning its label', () => {
     expect(() => equationOfTimeLabelPosition([])).toThrow(RangeError);
+  });
+});
+
+describe('alidade minute scale (FG-2d)', () => {
+  it('ticks every whole minute from −20 to +20 and labels every five', () => {
+    const scale = alidadeMinuteScale();
+    expect(scale.map((tick) => tick.minutes)).toEqual(Array.from({ length: 41 }, (_, index) => index - 20));
+    expect(scale.filter((tick) => tick.labelled).map((tick) => tick.minutes)).toEqual([-20, -15, -10, -5, 0, 5, 10, 15, 20]);
+    for (let index = 1; index < scale.length; index += 1) {
+      expect(scale[index].radius - scale[index - 1].radius).toBeCloseTo(EQUATION_PIXELS_PER_MINUTE, 10);
+    }
+  });
+
+  it('carries the 23 October equation-of-time point on the scale', () => {
+    const scale = alidadeMinuteScale();
+    const point = equationOfTimePoint(new Date('2026-10-23T12:00:00Z'));
+    const minutes = equationOfTime(new Date('2026-10-23T12:00:00Z'));
+    expect(minutes).toBeGreaterThan(15);
+    expect(point.radius).toBeGreaterThan(scale[0].radius);
+    expect(point.radius).toBeLessThan(scale[scale.length - 1].radius);
+    const nearest = scale.reduce((best, tick) => Math.abs(tick.radius - point.radius) < Math.abs(best.radius - point.radius) ? tick : best);
+    expect(nearest.minutes).toBe(Math.round(minutes));
+    // The alidade laid over the date's longitude passes through the loop point.
+    const rotation = alidadeRotationForLongitude(point.longitude);
+    expect(Math.abs(alidadeLineCross(point, rotation))).toBeLessThan(1e-9);
+  });
+});
+
+describe('solid tapered rule outline', () => {
+  it('ends both arms exactly on the fiducial centre line, on opposite sides', () => {
+    const taper = { hub: 30, root: 34, shoulder: 20, shoulderAt: 500 };
+    const vertical = taperedRulePath('vertical', 594, taper);
+    expect(vertical).toContain('0 594');
+    expect(vertical).toContain('0 -594');
+    expect(vertical).toContain('34 0');
+    expect(vertical).toContain('-34 0');
+    const horizontal = taperedRulePath('horizontal', 600, taper);
+    // Right arm above the line (negative y), left arm below, like counterchangedRulePaths.
+    expect(horizontal).toContain('600 0');
+    expect(horizontal).toContain('-600 0');
+    expect(horizontal).toContain('0 -34');
+    expect(horizontal).toContain('0 34');
+  });
+});
+
+describe('fiducial edge', () => {
+  const taper = { hub: 30, root: 34, shoulder: 20, shoulderAt: 500 };
+  it('leaves each arm open along its edge, so a stroke never spills onto the open side', () => {
+    const subpaths = taperedRulePath('vertical', 594, taper).split(/(?=M)/).map((part) => part.trim());
+    // Two arms (open: no Z) and the closed boss.
+    expect(subpaths).toHaveLength(3);
+    for (const arm of subpaths.slice(0, 2)) {
+      expect(arm).not.toContain('Z');
+      const points = arm.replace(/[ML]/g, ' ').trim().split(/\s+/).map(Number);
+      const first = points.slice(0, 2);
+      const last = points.slice(-2);
+      // The implicit closing segment joins the pivot and the tip, both on the line x = 0.
+      expect(Math.abs(first[0])).toBe(0);
+      expect(Math.abs(last[0])).toBe(0);
+      expect(Math.abs(first[1] - last[1])).toBe(594);
+    }
+    expect(subpaths[2]).toMatch(/Z$/);
+  });
+  it('insets the bevel outline only along the edge: the back edge is the metal outline itself', () => {
+    const inset = taperedRulePath('vertical', 594, taper, 3);
+    expect(inset).toContain('3 594');
+    expect(inset).toContain('-3 -594');
+    const arms = (d: string) => d.split(/(?=M)/).slice(0, 2).map((arm) => arm.replace(/[ML]/g, ' ').trim().split(/\s+/).map(Number));
+    const metal = arms(taperedRulePath('vertical', 594, taper));
+    const bevel = arms(inset);
+    for (const [index, arm] of bevel.entries()) {
+      const outline = metal[index];
+      // Same vertex count; the root and shoulder (the back edge) are unchanged, so no bevel copy sticks out behind the arm.
+      expect(arm).toHaveLength(outline.length);
+      const sameBack = arm.filter((value, k) => value === outline[k]).length;
+      expect(sameBack).toBe(outline.length - 2);
+      // Every bevel vertex lies within the arm: |x| between the edge and the metal's own width at that height.
+      for (let k = 0; k < arm.length; k += 2) {
+        const x = arm[k];
+        expect(Math.abs(x)).toBeLessThanOrEqual(Math.max(...outline.filter((_, j) => j % 2 === 0).map(Math.abs)));
+      }
+    }
+  });
+  it('sets each ink line on its own arm, with its outer side on the edge', () => {
+    const [a, b] = fiducialSegments('vertical', 594, 0.7);
+    expect([a.x1, a.x2, a.y2]).toEqual([0.7, 0.7, 594]);
+    expect([b.x1, b.x2, b.y2]).toEqual([-0.7, -0.7, -594]);
+    const [h, k] = fiducialSegments('horizontal', 600, 0.7);
+    // Arm along +x has its body above the line (negative y), like the outline.
+    expect([h.y1, h.x2]).toEqual([-0.7, 600]);
+    expect([k.y1, k.x2]).toEqual([0.7, -600]);
   });
 });

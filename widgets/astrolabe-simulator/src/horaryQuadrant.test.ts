@@ -147,9 +147,9 @@ describe('traditional double horary construction', () => {
     expect(engravingLayout.labels.map(({ roman }) => roman)).toHaveLength(12);
     expect(engravingLayout.sideLabels.map(({ text }) => text)).toEqual(['A.M.', 'P.M.']);
     for (const width of [700, 340]) {
-      expect(engravingCssPixels(HORARY_LABEL_FONT_SIZE, width)).toBeCloseTo(HORARY_LABEL_FONT_SIZE * width / 1240, 10);
-      expect(engravingCssPixels(HORARY_SIDE_FONT_SIZE, width)).toBeCloseTo(HORARY_SIDE_FONT_SIZE * width / 1240, 10);
-      expect(engravingCssPixels(HORARY_TITLE_FONT_SIZE, width)).toBeCloseTo(HORARY_TITLE_FONT_SIZE * width / 1240, 10);
+      expect(engravingCssPixels(HORARY_LABEL_FONT_SIZE, width)).toBeCloseTo(HORARY_LABEL_FONT_SIZE * width / 1290, 10);
+      expect(engravingCssPixels(HORARY_SIDE_FONT_SIZE, width)).toBeCloseTo(HORARY_SIDE_FONT_SIZE * width / 1290, 10);
+      expect(engravingCssPixels(HORARY_TITLE_FONT_SIZE, width)).toBeCloseTo(HORARY_TITLE_FONT_SIZE * width / 1290, 10);
     }
   });
 

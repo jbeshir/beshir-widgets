@@ -26,3 +26,13 @@ export function alidadeLineCross(point: BackPoint, rotation: number): number {
   const direction = alidadeLineDirection(rotation);
   return point.x * direction.y - point.y * direction.x;
 }
+
+/**
+ * The altitude (0–90) a reading edge shows on the red scale for an alidade
+ * rotation. The edge crosses the same height at `h` and `180 − h`, so any
+ * rotation folds onto the 0–90 scale; the raw angle is not the reading.
+ */
+export function alidadeAltitudeReading(rotation: number): number {
+  const half = ((rotation % 180) + 180) % 180;
+  return Math.min(half, 180 - half);
+}
