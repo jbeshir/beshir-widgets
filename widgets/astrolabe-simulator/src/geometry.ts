@@ -143,6 +143,29 @@ export function azimuth(phiDeg: number, aPrimeDeg: number, R: number): HorizonGe
   };
 }
 
+/**
+ * One azimuth line on its own: the half of the azimuth circle that runs from
+ * the zenith through the points of that azimuth down to (and past) the
+ * horizon, ending at the nadir. Azimuths a and a+180° share one circle, so
+ * drawing the whole circle would put both directions on the same element.
+ * Only for azimuths off the meridian (not 0° or 180°).
+ */
+export function azimuthHalfPath(phiDeg: number, azimuthDeg: number, R: number): string {
+  const circle = azimuth(phiDeg, 90 - azimuthDeg, R);
+  if (circle.kind !== 'circle') throw new RangeError(`Azimuth ${azimuthDeg}° is the meridian, a straight line`);
+  const r = Math.abs(circle.r);
+  const from = zenith(phiDeg, R);
+  const to = nadir(phiDeg, R);
+  const on = projectHorizontal(phiDeg, 30, azimuthDeg, R);
+  const turn = (p: Point) => Math.atan2(p.y - circle.cy, p.x - circle.cx);
+  const ccw = (a: number, b: number) => ((b - a) % (2 * Math.PI) + 2 * Math.PI) % (2 * Math.PI);
+  // Sweep in the direction of increasing angle when that way passes the azimuth's own point.
+  const span = ccw(turn(from), turn(to));
+  const positive = ccw(turn(from), turn(on)) < span;
+  const arc = positive ? span : 2 * Math.PI - span;
+  return `M ${from.x} ${from.y} A ${r} ${r} 0 ${arc > Math.PI ? 1 : 0} ${positive ? 1 : 0} ${to.x} ${to.y}`;
+}
+
 /** Zenith point for plate latitude φ (δ=φ). FINDINGS §2.3. */
 export function zenith(phiDeg: number, R: number): Point {
   return { x: 0, y: R * Math.tan(deg2rad((90 - phiDeg) / 2)) };

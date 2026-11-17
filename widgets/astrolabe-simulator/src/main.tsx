@@ -1,5 +1,6 @@
 import { render } from 'preact';
 import { App } from './App';
+import { installInspect } from './tutorial/inspect';
 import '@fontsource/schibsted-grotesk/400.css';
 import '@fontsource/schibsted-grotesk/700.css';
 import './theme.css';
@@ -11,6 +12,8 @@ import './styles.css';
 if (window.self !== window.top && new URLSearchParams(location.search).get('embed') !== '0') {
   document.documentElement.classList.add('embedded');
 }
+
+installInspect();
 
 const root = document.getElementById('root');
 if (root) render(<App />, root);

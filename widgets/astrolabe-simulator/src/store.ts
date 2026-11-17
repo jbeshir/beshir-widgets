@@ -9,6 +9,7 @@ import { useEffect, useState } from 'preact/hooks';
 import { nearestPlate } from './data/plates';
 import { normalizeDeg } from './astro';
 import { searchFromState, stateFromSearch } from './urlState';
+import type { AstrolabeInspect } from './tutorial/inspect';
 
 export type Face = 'front' | 'back';
 
@@ -54,6 +55,12 @@ export interface ChangeMeta { source: ChangeSource; operationId?: number; syncUr
 export interface StoreChange {
   previous: AstrolabeState; current: AstrolabeState; changedKeys: readonly (keyof AstrolabeState)[]; meta: ChangeMeta;
 }
+
+/** A transaction patch: `visibility` and `location` may be sparse and are merged field by field. */
+export type StatePatch = Omit<Partial<AstrolabeState>, 'visibility' | 'location'> & {
+  visibility?: Partial<Visibility>;
+  location?: Partial<Location>;
+};
 
 export type LocationInput = Partial<Location> & { name?: string; lat: number; lng: number };
 
@@ -134,23 +141,15 @@ const ROTATION_KEYS = ['reteRotation', 'ruleRotation', 'alidadeRotation'] as con
  * partial without clobbering untouched fields. Never throws on partial or
  * malformed input — patches are applied field-by-field.
  */
-export function applyTransaction(patch: Partial<AstrolabeState>, meta: ChangeMeta = { source: 'host' }): StoreChange | null {
+export function applyTransaction(patch: StatePatch, meta: ChangeMeta = { source: 'host' }): StoreChange | null {
   if (!patch || typeof patch !== 'object') return null;
   const previous = state;
+  const { visibility, location, ...rest } = patch;
   const next: AstrolabeState = { ...state };
 
-  for (const key of Object.keys(patch) as (keyof AstrolabeState)[]) {
-    const value = patch[key];
-    if (value === undefined) continue;
-    if (key === 'visibility' && value && typeof value === 'object') {
-      next.visibility = { ...state.visibility, ...(value as Partial<Visibility>) };
-    } else if (key === 'location' && value && typeof value === 'object') {
-      next.location = { ...state.location, ...(value as Partial<Location>) };
-    } else {
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      (next as any)[key] = value;
-    }
-  }
+  Object.assign(next, Object.fromEntries(Object.entries(rest).filter(([, value]) => value !== undefined)));
+  if (visibility && typeof visibility === 'object') next.visibility = { ...state.visibility, ...visibility };
+  if (location && typeof location === 'object') next.location = { ...state.location, ...location };
 
   for (const key of ROTATION_KEYS) {
     if (typeof next[key] === 'number' && Number.isFinite(next[key])) {
@@ -170,7 +169,7 @@ export function applyTransaction(patch: Partial<AstrolabeState>, meta: ChangeMet
   return change;
 }
 
-export function setState(patch: Partial<AstrolabeState>): void {
+export function setState(patch: StatePatch): void {
   applyTransaction(patch, { source: 'host' });
 }
 
@@ -187,7 +186,7 @@ export function setLocation(input: LocationInput): void {
   if (!input || typeof input.lat !== 'number' || typeof input.lng !== 'number') return;
   const label = input.label ?? input.name ?? 'Custom';
   const manual = input.manual ?? false;
-  const patch: Partial<AstrolabeState> = { location: { label, lat: input.lat, lng: input.lng, manual } };
+  const patch: StatePatch = { location: { label, lat: input.lat, lng: input.lng, manual } };
   if (state.plateSelection === 'automatic') patch.plateLatitude = nearestPlate(input.lat).latitude;
   applyTransaction(patch, { source: 'user' });
 }
@@ -215,7 +214,7 @@ export function setAlidade(deg: number): void {
 
 export function toggleLayer(key: keyof Visibility): void {
   if (!(key in state.visibility)) return;
-  applyTransaction({ visibility: { [key]: !state.visibility[key] } as Partial<Visibility> }, { source: 'user' });
+  applyTransaction({ visibility: { [key]: !state.visibility[key] } }, { source: 'user' });
 }
 
 export function setHighlight(key: string | null): void {
@@ -232,8 +231,19 @@ export function reset(): void {
 
 export function useStore(): AstrolabeState {
   const [snapshot, setSnapshot] = useState(getState);
-  useEffect(() => subscribe(setSnapshot), []);
+  useEffect(() => {
+    const unsubscribe = subscribe(setSnapshot);
+    // Children's effects run before this one and may already have changed the store (a lesson opened from the URL).
+    setSnapshot(getState());
+    return unsubscribe;
+  }, []);
   return snapshot;
+}
+
+/** The host API on `window.astrolabe`; `inspect` is added by `installInspect` (tutorial/inspect.ts). */
+export type AstrolabeApi = typeof api & { inspect?: AstrolabeInspect };
+declare global {
+  interface Window { astrolabe?: AstrolabeApi }
 }
 
 const api = {
@@ -253,7 +263,4 @@ const api = {
   reset,
 };
 
-if (typeof window !== 'undefined') {
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  (window as any).astrolabe = api;
-}
+if (typeof window !== 'undefined') window.astrolabe = api;

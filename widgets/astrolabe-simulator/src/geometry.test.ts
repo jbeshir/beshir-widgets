@@ -2,6 +2,7 @@ import { describe, expect, it } from 'vitest';
 import {
   almucantar,
   azimuth,
+  azimuthHalfPath,
   capricornRadius,
   eclipticCircle,
   eclipticPoint,
@@ -221,5 +222,36 @@ describe('rete and ecliptic projection', () => {
     const wrapped = eclipticPoint(397, R);
     expect(wrapped.x).toBeCloseTo(point.x, 10);
     expect(wrapped.y).toBeCloseTo(point.y, 10);
+  });
+});
+
+describe('azimuthHalfPath', () => {
+  const R = 340;
+  const latitude = 51.5;
+  const pointsOf = (d: string) => {
+    const [, x0, y0, rx, , , large, sweep, x1, y1] = d.match(/^M (\S+) (\S+) A (\S+) (\S+) (\S+) (\S+) (\S+) (\S+) (\S+)$/)!.map(Number);
+    return { start: { x: x0, y: y0 }, end: { x: x1, y: y1 }, r: rx, large, sweep };
+  };
+  it('runs from the zenith to the nadir on its own azimuth circle', () => {
+    for (const az of [30, 60, 90, 120, 150, 210, 240, 270, 300, 330]) {
+      const arc = pointsOf(azimuthHalfPath(latitude, az, R));
+      const circle = azimuth(latitude, 90 - az, R);
+      if (circle.kind !== 'circle') throw new Error('expected a circle');
+      expect(arc.start.x).toBeCloseTo(zenith(latitude, R).x, 9);
+      expect(arc.start.y).toBeCloseTo(zenith(latitude, R).y, 9);
+      expect(arc.end.y).toBeCloseTo(nadir(latitude, R).y, 9);
+      expect(arc.r).toBeCloseTo(Math.abs(circle.r), 9);
+    }
+  });
+  it('takes the half on the side of its own direction, so opposite azimuths differ', () => {
+    for (const az of [30, 60, 90, 120, 150]) {
+      const east = pointsOf(azimuthHalfPath(latitude, az, R));
+      const west = pointsOf(azimuthHalfPath(latitude, az + 180, R));
+      // Same circle, complementary arcs between the same two points.
+      expect(east.sweep).not.toBe(west.sweep);
+      expect(east.large).not.toBe(west.large);
+    }
+    // East (90°) is on the left of the plate's own frame as projected; its points lie on the same side as the label.
+    expect(Math.sign(projectHorizontal(latitude, 30, 90, R).x)).not.toBe(Math.sign(projectHorizontal(latitude, 30, 270, R).x));
   });
 });

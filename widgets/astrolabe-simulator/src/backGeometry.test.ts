@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import { calendarDayTicks } from './calendarScale';
 import {
+  alidadeAltitudeReading,
   alidadeLineCross,
   alidadeRotationForLongitude,
   backLongitudePoint,
@@ -32,4 +33,13 @@ describe('back scale and alidade alignment', () => {
     expect(rotation).not.toBeCloseTo(july14!.longitude, 1);
     expect(alidadeLineCross(backLongitudePoint(456, july14!.longitude), rotation)).toBeCloseTo(0, 10);
   });
+});
+
+describe('alidade altitude reading', () => {
+  it.each([[0, 0], [47, 47], [90, 90], [133, 47], [180, 0], [227, 47], [300, 60], [359.5, 0.5]])(
+    'rotation %s reads %s on the red scale',
+    (rotation, altitude) => {
+      expect(alidadeAltitudeReading(rotation)).toBeCloseTo(altitude, 6);
+    },
+  );
 });
