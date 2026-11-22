@@ -1,73 +1,112 @@
 {
   "matrix": {
-    "viewports": ["mobile:390x844", "tablet:768x1024", "desktop:1280x800"],
-    "schemes": ["light", "dark"]
+    "viewports": [
+      "mobile:390x844",
+      "tablet:768x1024",
+      "desktop:1280x800"
+    ],
+    "schemes": [
+      "light",
+      "dark"
+    ]
   },
   "states": [
     {
       "label": "initial",
       "steps": [
         {
-          "eval": "(() => { const eclipticTicks = document.querySelectorAll('.astro-ecliptic-tick'); const limbTicks = document.querySelectorAll('.astro-limb-tick'); if (eclipticTicks.length !== 720 || !document.querySelector('[data-ecliptic-longitude=\"0.5\"]')) throw new Error(`front ecliptic is not graduated by half degrees (${eclipticTicks.length} ticks)`); if (document.querySelector('.astro-zodiac-label')) throw new Error('zodiac abbreviations remain on the front'); if (limbTicks.length !== 360 || !document.querySelector('[data-limb-degree=\"1\"]')) throw new Error(`front limb is not graduated by degrees (${limbTicks.length} ticks)`); const texture = document.querySelector('.astro-rete-edge-texture'); const filter = document.querySelector('#rete-edge-texture'); const textureStyle = texture && getComputedStyle(texture); if (!document.querySelector('.astro-rete-outer-rim') || !texture || !filter?.querySelector('feTurbulence') || textureStyle?.filter === 'none' || parseFloat(textureStyle?.strokeWidth || '0') < 18 || parseFloat(textureStyle?.opacity || '0') < 0.5) throw new Error('visible procedural rotating rete texture is missing'); const assists = document.querySelector('[data-testid=layer-artificialAssists]'); if (!assists || assists.checked || document.querySelector('.astro-sun')) throw new Error('artificial Sun assist is not off by default'); })()"
+          "eval": "(() => { const eclipticTicks = document.querySelectorAll('.astro-ecliptic-tick'); const limbTicks = document.querySelectorAll('.astro-limb-tick'); if (eclipticTicks.length !== 720 || !document.querySelector('[data-ecliptic-longitude=\"0.5\"]')) throw new Error(`front ecliptic is not graduated by half degrees (${eclipticTicks.length} ticks)`); if (document.querySelector('.astro-zodiac-label')) throw new Error('zodiac abbreviations remain on the front'); if (limbTicks.length !== 360 || !document.querySelector('[data-limb-degree=\"1\"]')) throw new Error(`front limb is not graduated by degrees (${limbTicks.length} ticks)`); const rete = document.querySelector('[data-part=rete]'); if (!rete || !rete.querySelector('use.astro-rete-metal') || rete.getAttribute('role') !== 'slider') throw new Error('opaque pierced rete with data-part is missing'); if (document.querySelector('feTurbulence')) throw new Error('live feTurbulence grain remains'); for (const el of document.querySelectorAll('.astro-layer-moving, .astro-layer-moving *')) { const style = getComputedStyle(el); if (style.filter !== 'none' || style.mask !== 'none' && style.mask !== '' || style.clipPath !== 'none' || style.mixBlendMode !== 'normal' || el.hasAttribute('filter') || el.hasAttribute('mask') || el.hasAttribute('clip-path')) throw new Error(`moving layer carries a filter, mask, clip or blend: ${el.tagName}.${el.getAttribute('class')}`); } const pointers = document.querySelectorAll('[data-part=star-pointer][data-star]'); if (pointers.length !== 25 || !document.querySelector('[data-part=star-pointer][data-star=sirius] .astro-star-dot')) throw new Error(`star pointers missing (${pointers.length})`); for (const part of ['mater', 'throne', 'pin', 'limb', 'limb-degree-scale', 'limb-hour-scale', 'plate', 'horizon', 'zenith', 'almucantar', 'meridian-line', 'azimuth-line', 'equator', 'tropic-cancer', 'tropic-capricorn', 'unequal-hour-line', 'rete', 'ecliptic-ring', 'ecliptic-edge', 'ecliptic-scale', 'star-pointer', 'rule', 'rule-edge', 'face-toggle', 'plate-selector', 'plate-mismatch']) { if (!document.querySelector(`[data-part=\"${part}\"]`)) throw new Error(`front part ${part} is not tagged`); } if (document.querySelectorAll('[data-part=almucantar][data-altitude=\"30\"]').length < 2 || !document.querySelector('[data-part=unequal-hour-line][data-hour=\"9\"]') || !document.querySelector('[data-part=ecliptic-scale][data-longitude=\"0.5\"]') || !document.querySelector('[data-part=limb-degree-scale][data-degree=\"359\"]')) throw new Error('part instance attributes missing'); const noon = document.querySelector('[data-part=limb-hour-scale][data-hour=\"12\"]').getBoundingClientRect(); const midnight = document.querySelector('[data-part=limb-hour-scale][data-hour=\"0\"]').getBoundingClientRect(); const six = document.querySelector('[data-part=limb-hour-scale][data-hour=\"6\"]').getBoundingClientRect(); if (!(noon.top < midnight.top && six.left < noon.left)) throw new Error('limb hours are not engraved with noon at the top, increasing clockwise'); const toClient = (x, y) => new DOMPoint(x, y).matrixTransform(rete.getScreenCTM()); const angle = Math.PI / 4; const gap = toClient(440 * Math.sin(angle), 440 * Math.cos(angle)); const metal = toClient(511 * Math.sin(angle), 511 * Math.cos(angle)); const atGap = document.elementFromPoint(gap.x, gap.y); const atMetal = document.elementFromPoint(metal.x, metal.y); if (!atGap || atGap.closest('[data-part=rete]') || !atGap.closest('.astro-layer-base')) throw new Error(`rete gap does not reveal the plate (${atGap?.tagName}.${atGap?.getAttribute('class')})`); if (!atMetal?.closest('[data-part=rete]')) throw new Error(`rete metal is not the drag target (${atMetal?.tagName}.${atMetal?.getAttribute('class')})`); const assists = document.querySelector('[data-testid=layer-artificialAssists]'); if (!assists || assists.checked || document.querySelector('.astro-sun')) throw new Error('artificial Sun assist is not off by default'); })()"
         },
         {
-          "eval": "(() => { const cards = [...document.querySelectorAll('.lesson-card')]; const starts = [...document.querySelectorAll('[data-testid^=\"start-\"]')]; if (cards.length !== 9 || starts.length !== 9) throw new Error(`complete curriculum not rendered (${cards.length} cards, ${starts.length} starts)`); if (document.querySelector('.future-card, .lesson-category, .lesson-card button:disabled')) throw new Error('lesson categories or placeholders remain'); const titles = cards.map((card) => card.querySelector('h3')?.textContent); if (!titles[3]?.includes('sunrise, noon, and sunset') || !titles[6]?.includes('apparent solar time') || !titles[7]?.includes('shadow square')) throw new Error(`curriculum order is wrong: ${titles.join(' | ')}`); })()"
+          "eval": "(() => { const cards = [...document.querySelectorAll('.lesson-card')]; const starts = [...document.querySelectorAll('[data-testid^=\"start-\"]')]; if (cards.length !== 12 || starts.length !== 12) throw new Error(`complete course not rendered (${cards.length} cards, ${starts.length} starts)`); if (document.querySelector('.future-card, .lesson-category, .lesson-card button:disabled')) throw new Error('lesson categories or placeholders remain'); const titles = cards.map((card) => card.querySelector('h3')?.textContent ?? ''); const expected = ['1. Meet the astrolabe', '2. Set a measured altitude', '3. Read height and direction', '4. Follow a star', '5. Find the Sun’s place', '6. Tell the time from the Sun’s height', '7. Find sunrise', '8. Tell the time at night', '9. Turn astrolabe time', '10. Tell the seasonal', '11. Set the sky', '12. Measure a height with the shadow square']; expected.forEach((start, i) => { if (!titles[i].startsWith(start)) throw new Error(`course order is wrong at ${i + 1}: ${titles[i]}`); }); const steps = cards.map((card) => card.querySelector('.lesson-meta')?.textContent).join(','); if (steps !== '12 steps,6 steps,8 steps,8 steps,9 steps,11 steps,8 steps,9 steps,10 steps,8 steps,9 steps,9 steps') throw new Error('step counts: ' + steps); })()"
         }
       ],
-      "expect": { "state": "ready" }
+      "expect": {
+        "state": "ready"
+      }
     },
     {
       "label": "flip-back",
-      "steps": [{ "click": "[data-testid=face-toggle]" }],
-      "expect": { "state": "ready" }
+      "steps": [
+        {
+          "click": "[data-testid=face-toggle]"
+        },
+        {
+          "eval": "(() => { for (const part of ['mater', 'throne', 'pin', 'back-degree-scale', 'altitude-scale', 'zodiac-scale', 'calendar-scale', 'back-axes', 'shadow-square', 'umbra-versa', 'umbra-recta', 'eot-curve', 'horary-quadrant', 'alidade', 'alidade-edge', 'alidade-minute-scale']) { if (!document.querySelector(`[data-part=\"${part}\"]`)) throw new Error(`back part ${part} is not tagged`); } if (document.querySelectorAll('[data-part=calendar-scale][data-date]').length !== 365 || !document.querySelector('[data-part=calendar-scale][data-date=\"07-14\"][data-testid=calendar-july-14]')) throw new Error('calendar day ticks lack MM-DD dates'); const minutes = document.querySelectorAll('[data-part=alidade-minute-scale] line'); const labels = [...document.querySelectorAll('[data-part=alidade-minute-scale] .astro-alidade-scale-label')].map((t) => t.textContent); if (minutes.length !== 41 || labels.join(',') !== '−20,−15,−10,−5,0,+5,+10,+15,+20') throw new Error(`alidade minute scale is not −20…+20 by minutes (${minutes.length}; ${labels.join(',')})`); if (/ALTITUDE/.test(document.querySelector('[data-part=alidade]').textContent)) throw new Error('ALTITUDE caption remains on the alidade'); const versa = document.querySelectorAll('[data-part=umbra-versa] .astro-shadow-number'); const recta = document.querySelectorAll('[data-part=umbra-recta] .astro-shadow-number'); if (versa.length !== 12 || recta.length !== 12) throw new Error('shadow-square numbers are not on both halves'); const alidade = document.querySelector('[data-part=alidade]'); const p = new DOMPoint(450, -12).matrixTransform(alidade.getScreenCTM()); if (!document.elementFromPoint(p.x, p.y)?.closest('[data-part=alidade]')) throw new Error('alidade metal is not the drag target'); })()"
+        }
+      ],
+      "expect": {
+        "state": "ready"
+      }
     },
     {
-      "label": "rotated-rete-texture",
+      "label": "rotated-rete",
       "steps": [
         {
           "eval": "new Promise((resolve) => { window.astrolabe.setRete(47); requestAnimationFrame(() => requestAnimationFrame(resolve)); })"
         },
         {
-          "eval": "(() => { const rete = document.querySelector('[aria-label=\"Rete rotation\"]'); const texture = document.querySelector('.astro-rete-edge-texture'); if (rete?.getAttribute('aria-valuenow') !== '47' || !rete?.getAttribute('transform')?.startsWith('matrix(') || !texture) throw new Error('rete texture did not rotate with the star-map layer'); })()"
+          "eval": "(() => { const rete = document.querySelector('[aria-label=\"Rete rotation\"]'); if (rete?.getAttribute('aria-valuenow') !== '47' || !rete?.getAttribute('transform')?.startsWith('matrix(') || rete.getAttribute('data-part') !== 'rete' || !rete.querySelector('use.astro-rete-metal')) throw new Error('rete metal did not rotate with the star map'); const copies = document.querySelectorAll('.astro-stacked-copies use[href=\"#rete-metal\"]'); if (copies.length < 3) throw new Error('rete cast shadow and bevel copies are missing'); for (const copy of copies) { if (!copy.parentElement?.getAttribute('transform')?.endsWith(rete.getAttribute('transform'))) throw new Error('rete shadow copies do not follow the rete angle'); } })()"
         }
       ],
-      "expect": { "state": "ready" }
+      "expect": {
+        "state": "ready"
+      }
     },
     {
       "label": "enable-artificial-assists",
       "steps": [
-        { "click": "[data-testid=layer-artificialAssists]" },
+        {
+          "click": "[data-testid=layer-artificialAssists]"
+        },
         {
           "eval": "(() => { if (!document.querySelector('.astro-sun')) throw new Error('calculated Sun assist did not appear'); if (new URLSearchParams(location.search).get('show') !== 'artificialAssists') throw new Error('enabled artificial assist was not preserved in the URL'); })()"
         }
       ],
-      "expect": { "state": "ready" }
+      "expect": {
+        "state": "ready"
+      }
     },
     {
       "label": "shadow-square-45-degree-corner",
       "steps": [
-        { "click": "[data-testid=face-toggle]" },
+        {
+          "click": "[data-testid=face-toggle]"
+        },
         {
           "eval": "new Promise((resolve, reject) => { window.astrolabe.setAlidade(45); requestAnimationFrame(() => requestAnimationFrame(() => { try { const square = document.querySelector('[data-testid=shadow-square]'); if (!square) throw new Error('shadow-square journey element missing'); const x = Number(square.getAttribute('x')); const y = Number(square.getAttribute('y')) + Number(square.getAttribute('height')); if (Math.abs(x + y) > 1e-9) throw new Error(`45-degree alidade misses shadow-square corner (${x}, ${y})`); if (window.astrolabe.getState().alidadeRotation !== 45) throw new Error('alidade state did not rotate to 45 degrees'); resolve(true); } catch (error) { reject(error); } })); })"
         }
       ],
-      "expect": { "state": "ready" }
+      "expect": {
+        "state": "ready"
+      }
     },
     {
       "label": "url-state-survives-refresh",
       "steps": [
-        { "click": "[data-testid=face-toggle]" },
-        { "fill": "[data-testid=alidade-angle]", "value": "45" },
-        { "click": "[data-testid=layer-shadowSquare]" },
+        {
+          "click": "[data-testid=face-toggle]"
+        },
+        {
+          "fill": "[data-testid=alidade-angle]",
+          "value": "45"
+        },
+        {
+          "click": "[data-testid=layer-shadowSquare]"
+        },
         {
           "eval": "(() => { const params = new URLSearchParams(location.search); if (params.get('face') !== 'back' || params.get('alidade') !== '45' || params.get('hide') !== 'shadowSquare') throw new Error(`URL did not capture state: ${location.search}`); location.reload(); return true; })()"
         },
-        { "waitFor": "[data-testid=alidade-angle]" },
+        {
+          "waitFor": "[data-testid=alidade-angle]"
+        },
         {
           "eval": "(() => { const state = window.astrolabe.getState(); if (state.face !== 'back' || state.alidadeRotation !== 45 || state.visibility.shadowSquare !== false) throw new Error('URL state was not restored after refresh'); })()"
         }
       ],
-      "expect": { "state": "ready" }
+      "expect": {
+        "state": "ready"
+      }
     },
     {
       "label": "pick-city",
@@ -76,63 +115,255 @@
           "eval": "(() => { const e = document.querySelector('[data-testid=city-select]'); e.value = 'Cairo'; e.dispatchEvent(new Event('change', { bubbles: true })); })()"
         }
       ],
-      "expect": { "state": "ready" }
+      "expect": {
+        "state": "ready"
+      }
     },
     {
       "label": "manual-latitude",
       "steps": [
-        { "fill": "[data-testid=lat-input]", "value": "35.68" },
-        { "fill": "[data-testid=lng-input]", "value": "139.69" }
-      ],
-      "expect": { "selector": "[data-testid=mismatch]:not(:empty)" }
-    },
-    {
-      "label": "set-sky-before-reading-star",
-      "steps": [
-        { "click": "[data-testid=start-front\\.set-sky\\.v1]" },
         {
-          "eval": "(() => { const heading = document.querySelector('#lesson-step-heading'); if (heading?.textContent !== 'Choose the place, date, and time') throw new Error(`unexpected first step: ${heading?.textContent}`); if (/prepared/i.test(document.body.textContent)) throw new Error('confusing terminology remains visible'); if (window.astrolabe.getState().face !== 'back') throw new Error('lesson did not begin on the date scales'); })()"
+          "fill": "[data-testid=lat-input]",
+          "value": "35.68"
         },
         {
-          "eval": "(() => { const next = [...document.querySelectorAll('.lesson-actions button')].find((button) => button.textContent === 'Next'); if (!next) throw new Error('Next button missing'); next.click(); })()"
-        },
-        { "eval": "new Promise((resolve) => setTimeout(resolve, 800))" },
-        {
-          "eval": "(() => { if (document.querySelector('#lesson-step-heading')?.textContent !== 'Find the date on the calendar') throw new Error('calendar step did not precede reading'); const tick = document.querySelector('[data-testid=calendar-july-14]'); const pointer = document.querySelector('.astro-alidade-pointer'); if (!tick || !pointer) throw new Error('date or alidade geometry missing'); const transform = (element, x, y) => { const point = new DOMPoint(x, y).matrixTransform(element.getCTM()); return { x: point.x, y: point.y }; }; const a = transform(pointer, Number(pointer.getAttribute('x1')), Number(pointer.getAttribute('y1'))); const b = transform(pointer, Number(pointer.getAttribute('x2')), Number(pointer.getAttribute('y2'))); const t = transform(tick, (Number(tick.getAttribute('x1')) + Number(tick.getAttribute('x2'))) / 2, (Number(tick.getAttribute('y1')) + Number(tick.getAttribute('y2'))) / 2); const distance = Math.abs((b.x - a.x) * (a.y - t.y) - (a.x - t.x) * (b.y - a.y)) / Math.hypot(b.x - a.x, b.y - a.y); if (distance > 0.5) throw new Error(`alidade misses July 14 tick by ${distance}px`); const buttons = [...document.querySelectorAll('.lesson-actions button')]; const next = buttons.find((button) => button.textContent === 'Next'); const check = buttons.find((button) => button.textContent === 'Check'); if (!check || !next?.disabled) throw new Error('Find the date did not require Check before Next'); check.click(); })()"
-        },
-        { "eval": "new Promise((resolve) => requestAnimationFrame(() => requestAnimationFrame(resolve)))" },
-        {
-          "eval": "(() => { const next = [...document.querySelectorAll('.lesson-actions button')].find((button) => button.textContent === 'Next'); if (!next || next.disabled) throw new Error('Find the date did not pass its checkpoint'); next.click(); })()"
-        },
-        {
-          "eval": "(() => { if (document.querySelector('#lesson-step-heading')?.textContent !== 'Read the Sun’s ecliptic longitude') throw new Error('ecliptic-longitude step missing'); const next = [...document.querySelectorAll('.lesson-actions button')].find((button) => button.textContent === 'Next'); next?.click(); })()"
-        },
-        {
-          "eval": "(() => { const next = [...document.querySelectorAll('.lesson-actions button')].find((button) => button.textContent === 'Next'); if (document.querySelector('#lesson-step-heading')?.textContent !== 'Find the same longitude on the front' || window.astrolabe.getState().face !== 'front') throw new Error('lesson did not transfer the longitude to the front'); next?.click(); })()"
-        },
-        { "eval": "new Promise((resolve) => setTimeout(resolve, 800))" },
-        {
-          "eval": "(() => { if (document.querySelector('#lesson-step-heading')?.textContent !== 'Set the rule to the time') throw new Error('time rule was not set before the sky'); const buttons = [...document.querySelectorAll('.lesson-actions button')]; const next = buttons.find((button) => button.textContent === 'Next'); const check = buttons.find((button) => button.textContent === 'Check'); if (!check || !next?.disabled) throw new Error('Set the rule did not require Check before Next'); check.click(); })()"
-        },
-        { "eval": "new Promise((resolve) => requestAnimationFrame(() => requestAnimationFrame(resolve)))" },
-        {
-          "eval": "(() => { const next = [...document.querySelectorAll('.lesson-actions button')].find((button) => button.textContent === 'Next'); if (!next || next.disabled) throw new Error('Set the rule did not pass its checkpoint'); next.click(); })()"
-        },
-        { "eval": "new Promise((resolve) => setTimeout(resolve, 900))" },
-        {
-          "eval": "(() => { const heading = document.querySelector('#lesson-step-heading'); if (heading?.textContent !== 'Set the sky') throw new Error('sky-setting step missing'); if (document.body.textContent.includes('Locate Sirius')) throw new Error('star reading leaked into the sky-setting lesson'); if (heading.hasAttribute('tabindex')) throw new Error('non-interactive lesson heading is focusable'); if (document.activeElement === heading) throw new Error('lesson heading received focus'); })()"
+          "fill": "[data-testid=lng-input]",
+          "value": "139.69"
         }
       ],
-      "expect": { "state": "ready" }
+      "expect": {
+        "selector": "[data-testid=mismatch]:not(:empty)"
+      }
     },
     {
-      "label": "all-completed-lessons-launch",
+      "label": "step-highlights-back",
       "steps": [
         {
-          "eval": "(async () => { const cases = [['solar.events.v1', 'Choose the date and place', 'front'], ['front.unequal-hours.v1', 'Understand temporal hours', 'front'], ['back.measure-altitude.v1', 'Understand the physical observation', 'back'], ['back.equation-time.v1', 'Distinguish the two kinds of time', 'back'], ['back.shadow-square.v1', 'Choose a known distance', 'back'], ['back.unequal-hours.v1', 'Turn to the back', 'back']]; const settle = () => new Promise((resolve) => requestAnimationFrame(() => requestAnimationFrame(resolve))); for (const [id, heading, face] of cases) { const start = document.querySelector(`[data-testid=\"start-${CSS.escape(id)}\"]`); if (!start) throw new Error(`missing start button for ${id}`); start.click(); await settle(); if (document.querySelector('#lesson-step-heading')?.textContent !== heading) throw new Error(`${id} did not open at its first step`); if (window.astrolabe.getState().face !== face) throw new Error(`${id} opened on the wrong face`); const all = [...document.querySelectorAll('button')].find((button) => button.textContent === 'All lessons'); if (!all) throw new Error(`cannot return from ${id}`); all.click(); await settle(); } })()"
+          "eval": "(async () => { const frames = (n = 2) => new Promise((resolve) => { const tick = (k) => k <= 0 ? resolve() : requestAnimationFrame(() => tick(k - 1)); tick(n); });\nconst panel = () => document.querySelector('aside.astrolabe-guide');\nconst buttons = () => [...document.querySelectorAll('.lesson-actions button')];\nconst named = (name) => buttons().find((b) => b.textContent === name);\nconst settled = async () => { for (let i = 0; i < 200; i += 1) { const phase = panel()?.dataset.stepPhase; if (phase && phase !== 'demonstrating') return phase; await frames(1); } throw new Error('step never settled'); };\nconst near = (a, b, t = 0.01) => Math.abs((((a - b) % 360) + 540) % 360 - 180) <= t;\n\nawait window.astrolabe.inspect.openStep('front.foundations.v1', 'move-alidade');\nconst alidade = document.querySelector('[data-part=\"alidade\"]');\nif (!alidade || !alidade.hasAttribute('data-highlighted')) throw new Error('the alidade is not highlighted');\nconst metal = alidade.querySelector(':scope > .astro-alidade-metal');\nif (!metal.hasAttribute('data-hl-shape')) throw new Error('the alidade metal is not marked');\nconst under = alidade.querySelector('[data-hl-layer=\"under\"] .astro-hl-outer');\nif (!under || getComputedStyle(under).stroke !== 'rgb(10, 31, 110)' || parseFloat(getComputedStyle(under).strokeWidth) < 4) throw new Error('the alidade metal has no two-tone halo beneath it');\nif (!alidade.querySelector('[data-hl-layer=\"under\"] .astro-hl-core')) throw new Error('the alidade halo has no pale core');\nawait window.astrolabe.inspect.openStep('back.measure-altitude.v1', 'set-alidade'); await frames();\nconst reds = [...document.querySelectorAll('[data-part=\"altitude-scale\"] .astro-altitude-number')];\nif (!reds.length || !reds.every((n) => n.hasAttribute('data-hl-text') && getComputedStyle(n).fill === 'rgb(122, 22, 16)')) throw new Error('the highlighted altitude scale is not kept red');\nconst band = document.querySelector('[data-hl-layer=\"under\"][data-hl-frame=\"base\"] .astro-hl-outer.astro-hl-band');\nconst bandCtm = band && band.getScreenCTM();\nif (!band || getComputedStyle(band).stroke !== 'rgb(10, 31, 110)' || parseFloat(getComputedStyle(band).strokeWidth) * Math.hypot(bandCtm.a, bandCtm.b) < 2) throw new Error('the altitude scale has no band halo beneath its numerals');\nif (document.querySelector('[data-hl-layer] :is(.astro-hl-outer, .astro-hl-core).astro-altitude-number')) throw new Error('the altitude numerals got a halo each instead of one band');\nawait window.astrolabe.inspect.openStep('front.foundations.v1', 'move-alidade'); await frames();\nif (document.querySelector('[data-part=\"star-pointer\"][data-highlighted]')) throw new Error('a stale front highlight survived the face change');\nawait window.astrolabe.inspect.openStep('front.local-sky.v1', 'restore-plate'); await frames();\nconst banner = document.querySelector('[data-testid=mismatch]');\nif (!banner.hasAttribute('data-highlighted') || getComputedStyle(banner).outlineStyle !== 'solid') throw new Error('the plate-mismatch banner is not outlined');\nif (document.querySelector('[data-part=\"alidade\"][data-highlighted]')) throw new Error('a stale back highlight remained');\nif (!/differ by 10\\.57/.test(banner.textContent)) throw new Error('the Rome plate mismatch is not reported: ' + banner.textContent);\nif (document.querySelector('details.settings-disclosure')?.open) throw new Error('the settings opened on a plate step');\nconst select = document.querySelector('[data-testid=lesson-plate-select]');\nif (!select || !select.closest('.astrolabe-guide') || !select.hasAttribute('data-highlighted')) throw new Error('the plate menu is not shown, highlighted, in the guide');\nselect.value = [...select.options].find((o) => o.textContent === 'Exact').value;\nselect.dispatchEvent(new Event('change', { bubbles: true })); await frames();\nnamed('Check').click(); await frames();\nif (named('Next').disabled || !/matches your latitude closely/.test(banner.textContent)) throw new Error('choosing Exact did not pass the plate step');\n\n})()"
         }
       ],
-      "expect": { "state": "ready" }
+      "expect": {
+        "state": "ready"
+      }
+    },
+    {
+      "label": "choice-question",
+      "steps": [
+        {
+          "eval": "(async () => { const frames = (n = 2) => new Promise((resolve) => { const tick = (k) => k <= 0 ? resolve() : requestAnimationFrame(() => tick(k - 1)); tick(n); });\nconst panel = () => document.querySelector('aside.astrolabe-guide');\nconst buttons = () => [...document.querySelectorAll('.lesson-actions button')];\nconst named = (name) => buttons().find((b) => b.textContent === name);\nconst settled = async () => { for (let i = 0; i < 200; i += 1) { const phase = panel()?.dataset.stepPhase; if (phase && phase !== 'demonstrating') return phase; await frames(1); } throw new Error('step never settled'); };\nconst near = (a, b, t = 0.01) => Math.abs((((a - b) % 360) + 540) % 360 - 180) <= t;\n\nconst click = async (el) => { el.click(); await frames(); };\nconst radios = () => [...document.querySelectorAll('fieldset.choice input[type=radio]')];\nawait window.astrolabe.inspect.openStep('back.measure-altitude.v1', 'read-between');\nconst opts = window.astrolabe.inspect.step('back.measure-altitude.v1', 'read-between').check.options;\nconst iRight = opts.findIndex((o) => o.correct); const iDown = opts.findIndex((o) => /red 50/.test(o.misconception || '')); const iOther = [0, 1, 2].find((i) => i !== iRight && i !== iDown);\nconst set = document.querySelector('fieldset.choice');\nif (!set || !set.querySelector('legend')?.textContent) throw new Error('choice fieldset or legend missing');\nif (radios().length !== 3) throw new Error('expected 3 options');\nif (!named('Next').disabled) throw new Error('Next should wait for the answer');\nif (/47°\\. The black/.test(panel().textContent)) throw new Error('the answer is visible before answering');\nawait click(named('Check answer'));\nif (!document.querySelector('.sr-status').textContent.includes('Choose an answer')) throw new Error('no prompt to choose');\nawait click(radios()[iDown]); await click(named('Check answer'));\nconst wrong = document.querySelector('.choice-feedback.is-wrong');\nif (!wrong || !/adds the 3 ticks between the edge and the red 50/.test(wrong.textContent)) throw new Error('wrong pick should show its misconception note');\nif (!named('Next').disabled) throw new Error('Next opened after a wrong answer');\nif (/choice|correct|answer/i.test(location.search)) throw new Error('the answer leaked into the URL: ' + location.search);\nawait click(radios()[iRight]);\nif (document.querySelector('.choice-feedback')) throw new Error('feedback should clear on a new pick');\nawait click(named('Check answer'));\nif (!document.querySelector('.choice-feedback.is-correct')) throw new Error('no correct feedback');\nif (named('Next').disabled) throw new Error('Next should open after the correct pick');\nif (document.activeElement !== named('Next')) throw new Error('focus should move to Next');\nawait click(named('Replay')); await frames();\nif (radios().some((r) => r.checked) || document.querySelector('.choice-feedback') || !named('Next').disabled) throw new Error('Replay should reset the question');\nawait click(radios()[iOther]); await click(named('Check answer'));\nif (!document.querySelector('.choice-feedback.is-wrong')) throw new Error('second wrong note missing');\n\n})()"
+        }
+      ],
+      "expect": {
+        "state": "ready"
+      }
+    },
+    {
+      "label": "step-highlights",
+      "steps": [
+        {
+          "eval": "(async () => { const frames = (n = 2) => new Promise((resolve) => { const tick = (k) => k <= 0 ? resolve() : requestAnimationFrame(() => tick(k - 1)); tick(n); });\nconst panel = () => document.querySelector('aside.astrolabe-guide');\nconst buttons = () => [...document.querySelectorAll('.lesson-actions button')];\nconst named = (name) => buttons().find((b) => b.textContent === name);\nconst settled = async () => { for (let i = 0; i < 200; i += 1) { const phase = panel()?.dataset.stepPhase; if (phase && phase !== 'demonstrating') return phase; await frames(1); } throw new Error('step never settled'); };\nconst near = (a, b, t = 0.01) => Math.abs((((a - b) % 360) + 540) % 360 - 180) <= t;\n\nawait window.astrolabe.inspect.openStep('front.local-sky.v1', 'read-regulus');\nconst markers = JSON.stringify({ ...panel().dataset });\nif (panel().dataset.lesson !== 'front.local-sky.v1' || panel().dataset.step !== 'read-regulus' || panel().dataset.stepPhase !== 'ready') throw new Error('panel markers: ' + markers);\nconst regulus = document.querySelector('[data-part=\"star-pointer\"][data-star=\"regulus\"]');\nif (!regulus || !regulus.hasAttribute('data-highlighted')) throw new Error('the Regulus pointer is not highlighted');\nif (!regulus.closest('.astro-rete')) throw new Error('the Regulus pointer should sit inside the rotating rete');\nconst marked = document.querySelectorAll('[data-highlighted]');\nif (marked.length !== 1) throw new Error('only the step highlight should be marked, found ' + marked.length);\nconst dot = regulus.querySelector('.astro-star-dot');\nconst style = getComputedStyle(dot);\nif (!dot.hasAttribute('data-hl-shape') || style.stroke === 'rgb(10, 31, 110)') throw new Error('the star tip is not marked, or was recoloured: ' + style.stroke);\nconst top = document.querySelector('[data-hl-layer=\"top\"][data-hl-frame=\"rete\"]');\nconst over = document.querySelector('[data-hl-frame-root=\"rete\"] > [data-hl-layer=\"over\"]');\nconst rim = over && over.querySelector('.astro-hl-outer');\nif (!rim || getComputedStyle(rim).stroke !== 'rgb(10, 31, 110)' || parseFloat(getComputedStyle(rim).strokeWidth) < 4) throw new Error('the Regulus pointer has no halo in the rete');\nif (!over.querySelector('.astro-hl-mark')) throw new Error('the Regulus blade is not redrawn above its halo');\nif (!top || !top.querySelector('.astro-hl-locator') || top.querySelector('.astro-hl-outer, .astro-hl-mark')) throw new Error('only the Regulus locator ring may be lifted above the rule');\nif (top.querySelector('[data-part], [data-highlighted], [id]')) throw new Error('a halo copy carries identity attributes');\nfor (const part of ['rete', 'rule']) { const el = document.querySelector('[data-part=\"' + part + '\"].astro-rotary'); el.focus(); if (document.activeElement !== el) throw new Error('the ' + part + ' cannot take keyboard focus'); el.blur(); }\nif (!(regulus.getAttribute('data-concept') || '').split(' ').includes('star-pointer')) throw new Error('data-concept missing on the star pointer');\nfor (const el of document.querySelectorAll('[data-hl-shape], [data-hl-text]')) { if (getComputedStyle(el).filter !== 'none') throw new Error('a highlighted element has a filter'); }\nif (document.querySelector('[data-part=\"star-pointer\"][data-star=\"capella\"]').hasAttribute('data-highlighted')) throw new Error('Capella should not be highlighted');\n\n})()"
+        }
+      ],
+      "expect": {
+        "state": "ready"
+      }
+    },
+    {
+      "label": "time-by-sun-walk",
+      "steps": [
+        {
+          "eval": "(async () => { const frames = (n = 2) => new Promise((resolve) => { const tick = (k) => k <= 0 ? resolve() : requestAnimationFrame(() => tick(k - 1)); tick(n); });\nconst panel = () => document.querySelector('aside.astrolabe-guide');\nconst buttons = () => [...document.querySelectorAll('.lesson-actions button')];\nconst named = (name) => buttons().find((b) => b.textContent === name);\nconst settled = async () => { for (let i = 0; i < 200; i += 1) { const phase = panel()?.dataset.stepPhase; if (phase && phase !== 'demonstrating') return phase; await frames(1); } throw new Error('step never settled'); };\nconst near = (a, b, t = 0.01) => Math.abs((((a - b) % 360) + 540) % 360 - 180) <= t;\n\nconst typed = { count: 0 }; for (const id of ['rete-angle', 'rule-angle', 'alidade-angle']) document.addEventListener('input', (e) => { if (e.target?.dataset?.testid === id) typed.count += 1; }, true);\nconst lessonId = 'solar.time-by-sun.v1';\ndocument.querySelector('[data-testid=\"start-solar\\\\.time-by-sun\\\\.v1\"]').click();\nawait frames();\nconst press = async (part, target) => {\n  const field = { rete: 'reteRotation', rule: 'ruleRotation', alidade: 'alidadeRotation' }[part];\n  const slider = document.querySelector('[data-part=\"' + part + '\"][role=slider]');\n  if (!slider) throw new Error('no ' + part + ' slider');\n  slider.focus();\n  for (let guard = 0; guard < 60; guard += 1) {\n    const current = window.astrolabe.getState()[field];\n    const delta = ((((target - current) % 360) + 540) % 360) - 180;\n    if (Math.abs(delta) < 0.5) return;\n    const big = Math.abs(delta) >= 9.5;\n    slider.dispatchEvent(new KeyboardEvent('keydown', { key: delta > 0 ? 'ArrowRight' : 'ArrowLeft', shiftKey: big, bubbles: true }));\n    await frames(1);\n  }\n  throw new Error('could not reach ' + target + ' on the ' + part);\n};\nconst seen = [];\nfor (let index = 0; index < 11; index += 1) {\n  await settled();\n  const step = window.astrolabe.inspect.step(lessonId, index);\n  if (panel().dataset.step !== step.id) throw new Error('expected step ' + step.id + ', at ' + panel().dataset.step);\n  if (document.querySelector('#lesson-step-heading')?.textContent !== step.title) throw new Error('heading mismatch at ' + step.id);\n  if (new URLSearchParams(location.search).get('step') !== step.id) throw new Error('URL step mismatch at ' + step.id);\n  if (step.check) {\n    if (step.mode === 'demonstrate') {\n      if (named('Check')) throw new Error('a demonstration step still asks for Check at ' + step.id);\n      if (named('Next')?.disabled && index < 10) throw new Error('Next is disabled after the demonstration at ' + step.id);\n    } else {\n      if (!named('Next')?.disabled && index < 10) throw new Error('Next is open before the check at ' + step.id);\n      if (document.querySelector('.lesson-result')) throw new Error('the result shows before the check at ' + step.id);\n    }\n  }\n  if (step.mode === 'your-turn') {\n    if (!document.querySelector('.lesson-stop')) throw new Error('no stop cue shown at ' + step.id);\n    named('Check').click(); await frames();\n    if (!named('Next').disabled) throw new Error('check passed before moving at ' + step.id);\n    const s = step.solution;\n    if (s.alidadeRotation !== undefined) await press('alidade', s.alidadeRotation);\n    if (s.reteRotation !== undefined) await press('rete', s.reteRotation);\n    if (s.ruleRotation !== undefined) await press('rule', s.ruleRotation);\n    named('Check').click(); await frames();\n  } else if (step.mode === 'demonstrate') {\n    // Passed by the demonstration itself: nothing to press.\n  } else if (step.mode === 'read') {\n    const radios = [...document.querySelectorAll('fieldset.choice input[type=radio]')];\n    const correct = step.check.options.findIndex((o) => o.correct);\n    radios[correct].click(); await frames();\n    named('Check answer').click(); await frames();\n  }\n  if (step.check && panel().dataset.stepPhase !== 'passed') throw new Error('check did not pass at ' + step.id + ' (' + panel().dataset.stepPhase + ')');\n  if (step.check && step.check.kind !== 'choice' && !document.querySelector('.lesson-result')) throw new Error('result missing after the check at ' + step.id);\n  seen.push(step.id);\n  if (index < 10) { named('Next').click(); await frames(); }\n}\nconst state = window.astrolabe.getState();\nif (!(Math.abs(state.ruleRotation - 324.74) < 1.5)) throw new Error('rule did not end over the October Sun: ' + state.ruleRotation);\nnamed('Finish').click(); await frames();\nif (panel().dataset.stepPhase !== 'complete') throw new Error('lesson did not complete');\nif (!/14:21/.test(document.querySelector('.completion').textContent)) throw new Error('completion does not interpret the reading');\nif (typed.count) throw new Error('a numeric angle input was used');\nif (seen.length !== 11) throw new Error('walked ' + seen.length + ' steps');\n\n})()"
+        }
+      ],
+      "expect": {
+        "state": "ready"
+      }
+    },
+    {
+      "label": "sun-place-date-tick",
+      "steps": [
+        {
+          "eval": "(async () => { const frames = (n = 2) => new Promise((resolve) => { const tick = (k) => k <= 0 ? resolve() : requestAnimationFrame(() => tick(k - 1)); tick(n); });\nconst panel = () => document.querySelector('aside.astrolabe-guide');\nconst buttons = () => [...document.querySelectorAll('.lesson-actions button')];\nconst named = (name) => buttons().find((b) => b.textContent === name);\nconst settled = async () => { for (let i = 0; i < 200; i += 1) { const phase = panel()?.dataset.stepPhase; if (phase && phase !== 'demonstrating') return phase; await frames(1); } throw new Error('step never settled'); };\nconst near = (a, b, t = 0.01) => Math.abs((((a - b) % 360) + 540) % 360 - 180) <= t;\n\nawait window.astrolabe.inspect.openStep('back.sun-place.v1', 'date-to-longitude');\nif (window.astrolabe.getState().face !== 'back') throw new Error('date step is not on the back');\nconst tick = document.querySelector('[data-part=\"calendar-scale\"][data-date=\"04-20\"]');\nconst pointer = document.querySelector('[data-part=\"alidade-edge\"]');\nif (!tick || !pointer) throw new Error('date tick or alidade edge missing');\nif (!tick.hasAttribute('data-highlighted')) throw new Error('the 20 April tick is not highlighted');\nconst at = (el, x, y) => new DOMPoint(x, y).matrixTransform(el.getScreenCTM());\n// The fiducial edge is the line through the pivot along the alidade frame x axis.\nconst body = pointer.closest('[data-part=\"alidade\"]');\nconst a = at(body, -600, 0);\nconst b = at(body, 600, 0);\nconst t = at(tick, (Number(tick.getAttribute('x1')) + Number(tick.getAttribute('x2'))) / 2, (Number(tick.getAttribute('y1')) + Number(tick.getAttribute('y2'))) / 2);\nconst distance = Math.abs((b.x - a.x) * (a.y - t.y) - (a.x - t.x) * (b.y - a.y)) / Math.hypot(b.x - a.x, b.y - a.y);\nif (distance > 0.5) throw new Error('alidade misses the 20 April tick by ' + distance + 'px');\nawait settled();\nif (named('Check') || named('Next').disabled) throw new Error('the date demonstration did not pass by itself');\n\n})()"
+        }
+      ],
+      "expect": {
+        "state": "ready"
+      }
+    },
+    {
+      "label": "back-replay",
+      "steps": [
+        {
+          "eval": "(async () => { const frames = (n = 2) => new Promise((resolve) => { const tick = (k) => k <= 0 ? resolve() : requestAnimationFrame(() => tick(k - 1)); tick(n); });\nconst panel = () => document.querySelector('aside.astrolabe-guide');\nconst buttons = () => [...document.querySelectorAll('.lesson-actions button')];\nconst named = (name) => buttons().find((b) => b.textContent === name);\nconst settled = async () => { for (let i = 0; i < 200; i += 1) { const phase = panel()?.dataset.stepPhase; if (phase && phase !== 'demonstrating') return phase; await frames(1); } throw new Error('step never settled'); };\nconst near = (a, b, t = 0.01) => Math.abs((((a - b) % 360) + 540) % 360 - 180) <= t;\n\nconst lessonId = 'solar.time-by-sun.v1';\nconst coherent = async (stepId) => {\n  await settled();\n  const step = window.astrolabe.inspect.step(lessonId, stepId);\n  const end = { ...step.snapshot };\n  const demo = step.demonstration;\n  if (demo && demo.field) { end[demo.field] = demo.to; if (demo.companion) end[demo.companion.field] = demo.companion.to; }\n  const state = window.astrolabe.getState();\n  if (panel().dataset.step !== stepId || document.querySelector('#lesson-step-heading')?.textContent !== step.title) throw new Error('not showing ' + stepId);\n  if (new URLSearchParams(location.search).get('step') !== stepId) throw new Error('URL is not at ' + stepId + ': ' + location.search);\n  if (state.face !== end.face) throw new Error(stepId + ' on the wrong face');\n  for (const f of ['reteRotation', 'ruleRotation', 'alidadeRotation']) if (!near(state[f], end[f])) throw new Error(stepId + ' ' + f + ' is ' + state[f] + ', expected ' + end[f]);\n};\nawait window.astrolabe.inspect.openStep(lessonId, 'set-sun');\nawait coherent('set-sun');\nwindow.astrolabe.setRete(10); await frames();\nnamed('Replay').click(); await frames();\nawait coherent('set-sun');\nif (named('Check') || named('Next').disabled) throw new Error('Replay did not leave a passing demonstration');\nnamed('Back').click(); await frames();\nawait coherent('choose-side');\nif (document.querySelector('fieldset.choice input:checked')) throw new Error('Back kept an old answer');\nnamed('Next').disabled || (() => { throw new Error('Next open on an unanswered question'); })();\nawait window.astrolabe.inspect.openStep(lessonId, 'set-sun');\nnamed('Next').click(); await frames();\nawait coherent('read-time');\nnamed('Back').click(); await frames();\nawait coherent('set-sun');\n\n})()"
+        }
+      ],
+      "expect": {
+        "state": "ready"
+      }
+    },
+    {
+      "label": "shared-url-and-refresh",
+      "steps": [
+        {
+          "eval": "(() => { history.replaceState(null, '', location.pathname + '?lesson=front.local-sky.v1&step=read-sirius&lv=1'); location.reload(); return true; })()"
+        },
+        {
+          "waitFor": "aside.astrolabe-guide[data-lesson=\"front.local-sky.v1\"][data-step=\"read-sirius\"]"
+        },
+        {
+          "eval": "(async () => { const frames = (n = 2) => new Promise((resolve) => { const tick = (k) => k <= 0 ? resolve() : requestAnimationFrame(() => tick(k - 1)); tick(n); });\nconst panel = () => document.querySelector('aside.astrolabe-guide');\nconst buttons = () => [...document.querySelectorAll('.lesson-actions button')];\nconst named = (name) => buttons().find((b) => b.textContent === name);\nconst settled = async () => { for (let i = 0; i < 200; i += 1) { const phase = panel()?.dataset.stepPhase; if (phase && phase !== 'demonstrating') return phase; await frames(1); } throw new Error('step never settled'); };\nconst near = (a, b, t = 0.01) => Math.abs((((a - b) % 360) + 540) % 360 - 180) <= t;\n\nawait settled();\nif (document.querySelector('#lesson-step-heading')?.textContent !== 'Worked reading: Sirius') throw new Error('shared link opened the wrong step');\nconst step = window.astrolabe.inspect.step('front.local-sky.v1', 'read-sirius');\nconst state = window.astrolabe.getState();\nif (state.face !== 'front' || !near(state.reteRotation, step.snapshot.reteRotation) || state.plateLatitude !== 51.5) throw new Error('shared link did not restore the step setting');\nhistory.replaceState(null, '', location.pathname + '?lesson=back.unequal-hours.v1&step=curve-six&lv=1'); setTimeout(() => location.reload(), 0);\n})()"
+        },
+        {
+          "waitFor": "aside.astrolabe-guide[data-lesson=\"front.unequal-hours.v1\"][data-step=\"temporal-hours\"]"
+        },
+        {
+          "eval": "(async () => { const frames = (n = 2) => new Promise((resolve) => { const tick = (k) => k <= 0 ? resolve() : requestAnimationFrame(() => tick(k - 1)); tick(n); });\nconst panel = () => document.querySelector('aside.astrolabe-guide');\nconst buttons = () => [...document.querySelectorAll('.lesson-actions button')];\nconst named = (name) => buttons().find((b) => b.textContent === name);\nconst settled = async () => { for (let i = 0; i < 200; i += 1) { const phase = panel()?.dataset.stepPhase; if (phase && phase !== 'demonstrating') return phase; await frames(1); } throw new Error('step never settled'); };\nconst near = (a, b, t = 0.01) => Math.abs((((a - b) % 360) + 540) % 360 - 180) <= t;\n\nawait settled();\nconst params = new URLSearchParams(location.search);\nif (params.get('lesson') !== 'front.unequal-hours.v1' || params.get('step') !== 'temporal-hours') throw new Error('old lesson link was not repaired: ' + location.search);\nif (!/unavailable/.test(document.querySelector('.sr-status').textContent)) throw new Error('no notice for the retired step');\nhistory.replaceState(null, '', location.pathname + '?lesson=solar.time-by-sun.v1&step=no-such-step&lv=1'); setTimeout(() => location.reload(), 0);\n})()"
+        },
+        {
+          "waitFor": "aside.astrolabe-guide[data-lesson=\"solar.time-by-sun.v1\"][data-step=\"the-task\"]"
+        },
+        {
+          "eval": "(async () => { const frames = (n = 2) => new Promise((resolve) => { const tick = (k) => k <= 0 ? resolve() : requestAnimationFrame(() => tick(k - 1)); tick(n); });\nconst panel = () => document.querySelector('aside.astrolabe-guide');\nconst buttons = () => [...document.querySelectorAll('.lesson-actions button')];\nconst named = (name) => buttons().find((b) => b.textContent === name);\nconst settled = async () => { for (let i = 0; i < 200; i += 1) { const phase = panel()?.dataset.stepPhase; if (phase && phase !== 'demonstrating') return phase; await frames(1); } throw new Error('step never settled'); };\nconst near = (a, b, t = 0.01) => Math.abs((((a - b) % 360) + 540) % 360 - 180) <= t;\n\nawait settled();\nif (new URLSearchParams(location.search).get('step') !== 'the-task') throw new Error('bad step id was not repaired');\nif (!/unavailable; the lesson restarted/.test(document.querySelector('.sr-status').textContent)) throw new Error('no restart notice');\nawait window.astrolabe.inspect.openStep('solar.time-by-sun.v1', 'second-set-sun');\nsetTimeout(() => location.reload(), 0);\n})()"
+        },
+        {
+          "waitFor": "aside.astrolabe-guide[data-lesson=\"solar.time-by-sun.v1\"][data-step=\"second-set-sun\"]"
+        },
+        {
+          "eval": "(async () => { const frames = (n = 2) => new Promise((resolve) => { const tick = (k) => k <= 0 ? resolve() : requestAnimationFrame(() => tick(k - 1)); tick(n); });\nconst panel = () => document.querySelector('aside.astrolabe-guide');\nconst buttons = () => [...document.querySelectorAll('.lesson-actions button')];\nconst named = (name) => buttons().find((b) => b.textContent === name);\nconst settled = async () => { for (let i = 0; i < 200; i += 1) { const phase = panel()?.dataset.stepPhase; if (phase && phase !== 'demonstrating') return phase; await frames(1); } throw new Error('step never settled'); };\nconst near = (a, b, t = 0.01) => Math.abs((((a - b) % 360) + 540) % 360 - 180) <= t;\n\nawait settled();\nconst state = window.astrolabe.getState();\nconst step = window.astrolabe.inspect.step('solar.time-by-sun.v1', 'second-set-sun');\nif (!near(state.reteRotation, step.snapshot.reteRotation) || panel().dataset.stepPhase !== 'ready') throw new Error('refresh did not reopen the step at its start');\nif (!named('Next').disabled) throw new Error('refresh skipped the your-turn check');\n})()"
+        }
+      ],
+      "expect": {
+        "state": "ready"
+      }
+    },
+    {
+      "label": "shared-back-step-and-refresh",
+      "steps": [
+        {
+          "eval": "(() => { history.replaceState(null, '', location.pathname + '?lesson=back.measure-altitude.v1&step=read-between&lv=1'); location.reload(); return true; })()"
+        },
+        {
+          "waitFor": "aside.astrolabe-guide[data-lesson=\"back.measure-altitude.v1\"][data-step=\"read-between\"]"
+        },
+        {
+          "eval": "(async () => { const frames = (n = 2) => new Promise((resolve) => { const tick = (k) => k <= 0 ? resolve() : requestAnimationFrame(() => tick(k - 1)); tick(n); });\nawait frames(4);\nconst what = \"shared link to a back-face step\";\nconst state = window.astrolabe.getState();\nconst instruments = document.querySelectorAll('.astro-instrument');\nif (state.face !== 'back') throw new Error(what + ': the store should be on the back, is ' + state.face);\nif (instruments.length !== 1 || instruments[0].getAttribute('data-face') !== 'back') throw new Error(what + ': the visible instrument is not the back (' + [...instruments].map((el) => el.getAttribute('data-face')).join(',') + ')');\nif (!document.querySelector('[data-part=alidade]') || document.querySelector('[data-part=rete]')) throw new Error(what + ': back parts missing or front parts shown');\nconst hint = document.querySelector('.card-header .hint').textContent;\nif (!hint.includes('latitude ' + state.plateLatitude.toFixed(2) + '°')) throw new Error(what + ': header says \"' + hint + '\" but the plate is ' + state.plateLatitude);\nconst toggle = document.querySelector('[data-testid=face-toggle]').textContent;\nif (!/Show front/.test(toggle)) throw new Error(what + ': the face toggle does not offer the front: ' + toggle);\n})()"
+        },
+        {
+          "eval": "(() => { setTimeout(() => location.reload(), 0); return true; })()"
+        },
+        {
+          "waitFor": "aside.astrolabe-guide[data-lesson=\"back.measure-altitude.v1\"][data-step=\"read-between\"]"
+        },
+        {
+          "eval": "(async () => { const frames = (n = 2) => new Promise((resolve) => { const tick = (k) => k <= 0 ? resolve() : requestAnimationFrame(() => tick(k - 1)); tick(n); });\nawait frames(4);\nconst what = \"refresh on a back-face step\";\nconst state = window.astrolabe.getState();\nconst instruments = document.querySelectorAll('.astro-instrument');\nif (state.face !== 'back') throw new Error(what + ': the store should be on the back, is ' + state.face);\nif (instruments.length !== 1 || instruments[0].getAttribute('data-face') !== 'back') throw new Error(what + ': the visible instrument is not the back (' + [...instruments].map((el) => el.getAttribute('data-face')).join(',') + ')');\nif (!document.querySelector('[data-part=alidade]') || document.querySelector('[data-part=rete]')) throw new Error(what + ': back parts missing or front parts shown');\nconst hint = document.querySelector('.card-header .hint').textContent;\nif (!hint.includes('latitude ' + state.plateLatitude.toFixed(2) + '°')) throw new Error(what + ': header says \"' + hint + '\" but the plate is ' + state.plateLatitude);\nconst toggle = document.querySelector('[data-testid=face-toggle]').textContent;\nif (!/Show front/.test(toggle)) throw new Error(what + ': the face toggle does not offer the front: ' + toggle);\n})()"
+        },
+        {
+          "eval": "(() => { history.replaceState(null, '', location.pathname + '?lesson=back.shadow-square.v1&step=steep&lv=1'); location.reload(); return true; })()"
+        },
+        {
+          "waitFor": "aside.astrolabe-guide[data-lesson=\"back.shadow-square.v1\"][data-step=\"steep\"]"
+        },
+        {
+          "eval": "(async () => { const frames = (n = 2) => new Promise((resolve) => { const tick = (k) => k <= 0 ? resolve() : requestAnimationFrame(() => tick(k - 1)); tick(n); });\nawait frames(4);\nconst what = \"shared link to the shadow-square step\";\nconst state = window.astrolabe.getState();\nconst instruments = document.querySelectorAll('.astro-instrument');\nif (state.face !== 'back') throw new Error(what + ': the store should be on the back, is ' + state.face);\nif (instruments.length !== 1 || instruments[0].getAttribute('data-face') !== 'back') throw new Error(what + ': the visible instrument is not the back (' + [...instruments].map((el) => el.getAttribute('data-face')).join(',') + ')');\nif (!document.querySelector('[data-part=alidade]') || document.querySelector('[data-part=rete]')) throw new Error(what + ': back parts missing or front parts shown');\nconst hint = document.querySelector('.card-header .hint').textContent;\nif (!hint.includes('latitude ' + state.plateLatitude.toFixed(2) + '°')) throw new Error(what + ': header says \"' + hint + '\" but the plate is ' + state.plateLatitude);\nconst toggle = document.querySelector('[data-testid=face-toggle]').textContent;\nif (!/Show front/.test(toggle)) throw new Error(what + ': the face toggle does not offer the front: ' + toggle);\n})()"
+        }
+      ],
+      "expect": {
+        "state": "ready"
+      }
+    },
+    {
+      "label": "all-lessons-launch",
+      "steps": [
+        {
+          "eval": "(async () => { const frames = (n = 2) => new Promise((resolve) => { const tick = (k) => k <= 0 ? resolve() : requestAnimationFrame(() => tick(k - 1)); tick(n); });\nconst panel = () => document.querySelector('aside.astrolabe-guide');\nconst buttons = () => [...document.querySelectorAll('.lesson-actions button')];\nconst named = (name) => buttons().find((b) => b.textContent === name);\nconst settled = async () => { for (let i = 0; i < 200; i += 1) { const phase = panel()?.dataset.stepPhase; if (phase && phase !== 'demonstrating') return phase; await frames(1); } throw new Error('step never settled'); };\nconst near = (a, b, t = 0.01) => Math.abs((((a - b) % 360) + 540) % 360 - 180) <= t;\n\nconst ids = [...document.querySelectorAll('[data-testid^=\"start-\"]')].map((b) => b.dataset.testid.slice('start-'.length));\nif (ids.length !== 12) throw new Error('expected 12 lessons, found ' + ids.length);\nfor (const id of ids) {\n  document.querySelector('[data-testid=\"start-' + CSS.escape(id) + '\"]').click();\n  await settled();\n  const first = window.astrolabe.inspect.step(id, 0);\n  if (panel().dataset.lesson !== id || panel().dataset.step !== first.id) throw new Error(id + ' did not open at its first step');\n  if (document.querySelector('#lesson-step-heading')?.textContent !== first.title) throw new Error(id + ' heading is not ' + first.title);\n  if (window.astrolabe.getState().face !== first.snapshot.face) throw new Error(id + ' opened on the wrong face');\n  if (!document.querySelector('.lesson-purpose')?.textContent) throw new Error(id + ' shows no purpose');\n  if (/\\b(fixture|deterministic|endpoint|API|solver|checkpoint|snapshot)\\b/i.test(panel().innerText)) throw new Error(id + ' panel shows an implementation term');\n  [...document.querySelectorAll('button')].find((b) => b.textContent === 'All lessons').click();\n  await frames();\n}\n\n})()"
+        }
+      ],
+      "expect": {
+        "state": "ready"
+      }
+    },
+    {
+      "label": "lesson-sun-on-almucantar",
+      "steps": [
+        {
+          "eval": "(async () => { const frames = (n = 2) => new Promise((resolve) => { const tick = (k) => k <= 0 ? resolve() : requestAnimationFrame(() => tick(k - 1)); tick(n); });\nconst panel = () => document.querySelector('aside.astrolabe-guide');\nconst buttons = () => [...document.querySelectorAll('.lesson-actions button')];\nconst named = (name) => buttons().find((b) => b.textContent === name);\nconst settled = async () => { for (let i = 0; i < 200; i += 1) { const phase = panel()?.dataset.stepPhase; if (phase && phase !== 'demonstrating') return phase; await frames(1); } throw new Error('step never settled'); };\nconst near = (a, b, t = 0.01) => Math.abs((((a - b) % 360) + 540) % 360 - 180) <= t;\n\nawait window.astrolabe.inspect.openStep('solar.time-by-sun.v1', 'set-sun');\nfor (const sel of ['[data-part=\"ecliptic-scale\"][data-longitude=\"30.5\"]', '[data-part=\"almucantar\"][data-altitude=\"30\"]']) if (!document.querySelector(sel + '[data-highlighted]')) throw new Error(sel + ' is not highlighted');\nawait settled();\nif (named('Check')) throw new Error('a demonstration step still asks for Check');\nif (named('Next').disabled) throw new Error('Next stayed disabled after the demonstration');\nif (!document.querySelector('.lesson-result')?.textContent.includes('as it did at the moment')) throw new Error('meaning not shown when the demonstration ended');\n\n})()"
+        }
+      ],
+      "expect": {
+        "state": "ready"
+      }
+    },
+    {
+      "label": "lesson-equation-reading",
+      "steps": [
+        {
+          "eval": "(async () => { const frames = (n = 2) => new Promise((resolve) => { const tick = (k) => k <= 0 ? resolve() : requestAnimationFrame(() => tick(k - 1)); tick(n); });\nconst panel = () => document.querySelector('aside.astrolabe-guide');\nconst buttons = () => [...document.querySelectorAll('.lesson-actions button')];\nconst named = (name) => buttons().find((b) => b.textContent === name);\nconst settled = async () => { for (let i = 0; i < 200; i += 1) { const phase = panel()?.dataset.stepPhase; if (phase && phase !== 'demonstrating') return phase; await frames(1); } throw new Error('step never settled'); };\nconst near = (a, b, t = 0.01) => Math.abs((((a - b) % 360) + 540) % 360 - 180) <= t;\n\nawait window.astrolabe.inspect.openStep('back.equation-time.v1', 'read-eot');\nif (window.astrolabe.getState().face !== 'back') throw new Error('equation step is not on the back');\nfor (const sel of ['[data-part=\"eot-curve\"]', '[data-part=\"alidade-minute-scale\"]']) if (!document.querySelector(sel + '[data-highlighted]')) throw new Error(sel + ' is not highlighted');\n\n})()"
+        }
+      ],
+      "expect": {
+        "state": "ready"
+      }
+    },
+    {
+      "label": "parts-rendered",
+      "steps": [
+        {
+          "eval": "window.astrolabe.inspect.auditParts().then((f) => { if (f.length) throw new Error(f.length + ' part failures: ' + f.slice(0, 25).map(window.astrolabe.inspect.formatFailure).join(' | ')); })"
+        }
+      ],
+      "expect": {
+        "state": "ready"
+      }
+    },
+    {
+      "label": "course-audit",
+      "steps": [
+        {
+          "eval": "(() => { const vis = !matchMedia('(prefers-color-scheme: dark)').matches && innerWidth !== 768; return window.astrolabe.inspect.auditCourse({ visibility: vis, lessons: [\"front.foundations.v1\",\"back.measure-altitude.v1\",\"front.local-sky.v1\",\"front.read-star.v1\",\"back.sun-place.v1\",\"solar.time-by-sun.v1\",\"solar.events.v1\",\"night.time-by-star.v1\",\"back.equation-time.v1\",\"front.unequal-hours.v1\",\"front.set-sky.v1\",\"back.shadow-square.v1\"] }).then((r) => { if (r.failures.length) throw new Error(r.failures.length + ' step failures in ' + r.steps + ' steps: ' + r.failures.slice(0, 25).map(window.astrolabe.inspect.formatFailure).join(' | ')); }); })()"
+        }
+      ],
+      "expect": {
+        "state": "ready"
+      }
+    },
+    {
+      "label": "interruption-recovery",
+      "steps": [
+        {
+          "eval": "(async () => { const frames = (n = 2) => new Promise((resolve) => { const tick = (k) => k <= 0 ? resolve() : requestAnimationFrame(() => tick(k - 1)); tick(n); });\nconst panel = () => document.querySelector('aside.astrolabe-guide');\nconst buttons = () => [...document.querySelectorAll('.lesson-actions button')];\nconst named = (name) => buttons().find((b) => b.textContent === name);\nconst settled = async () => { for (let i = 0; i < 200; i += 1) { const phase = panel()?.dataset.stepPhase; if (phase && phase !== 'demonstrating') return phase; await frames(1); } throw new Error('step never settled'); };\nconst near = (a, b, t = 0.01) => Math.abs((((a - b) % 360) + 540) % 360 - 180) <= t;\n\nconst lessonId = 'front.foundations.v1';\nlet index = 0; let demo;\nfor (;; index += 1) { const s = window.astrolabe.inspect.step(lessonId, index); if (!s) throw new Error('no angle demonstration in ' + lessonId); if (s.demonstration && s.demonstration.field) { demo = s; break; } }\nconst end = demo.demonstration.to; const field = demo.demonstration.field;\nconst setter = { reteRotation: 'setRete', ruleRotation: 'setRule', alidadeRotation: 'setAlidade' }[field];\nconst interrupt = async () => {\n  window.astrolabe.setState({ reducedMotion: false });\n  named('Replay').click();\n  window.astrolabe[setter](37); await frames();\n  window.astrolabe.setState({ reducedMotion: true });\n  if (panel().dataset.stepPhase !== 'interrupted') throw new Error('phase is ' + panel().dataset.stepPhase + ', expected interrupted');\n  const alert = document.querySelector('.interruption[role=alert]');\n  if (!alert) throw new Error('no interruption alert');\n  if (buttons().length) throw new Error('step actions are still offered during an interruption');\n  if (!near(window.astrolabe.getState()[field], 37)) throw new Error('the learner position was overwritten');\n  return alert;\n};\nconst alert_ = () => document.querySelector('.interruption[role=alert]');\nconst alertButton = (name) => [...document.querySelectorAll('.interruption button')].find((b) => b.textContent === name);\n\n// Before the lesson: a position of the learner's own, which \"Restore and exit\" must bring back.\nwindow.astrolabe.setRete(77); await frames();\nawait window.astrolabe.inspect.openStep(lessonId, index);\nawait settled();\nawait interrupt();\n// 1. Restart: back to the demonstration end, actions return, URL and heading intact.\nalertButton('Restart this step').click(); await settled(); await frames();\nif (panel().dataset.stepPhase === 'interrupted' || !named('Replay')) throw new Error('Restart did not recover the step');\nif (!near(window.astrolabe.getState()[field], end)) throw new Error('Restart did not reach the demonstration end');\nif (document.querySelector('#lesson-step-heading')?.textContent !== demo.title) throw new Error('heading changed on restart');\nif (new URLSearchParams(location.search).get('step') !== demo.id) throw new Error('URL lost the step on restart');\n// 1b. Continue with my position: the learner's position stays, the actions return, focus lands on the step heading.\nawait interrupt();\nif (!alert_(). textContent.includes('restoring the setup you had before the lesson')) throw new Error('the alert does not describe its options');\nalertButton('Continue with my position').click(); await frames();\nif (panel().dataset.stepPhase === 'interrupted' || !named('Replay')) throw new Error('Continue did not bring the actions back');\nif (!near(window.astrolabe.getState()[field], 37)) throw new Error('Continue moved the instrument');\nif (document.activeElement?.id !== 'lesson-step-heading') throw new Error('focus is not on the step heading after Continue');\n// 2. Keep this setup and exit: the learner's position survives, the catalog returns, the URL is clean.\nawait interrupt();\nalertButton('Keep this setup and exit').click(); await frames();\nif (panel().dataset.lesson) throw new Error('lesson still open after Keep and exit');\nif (!near(window.astrolabe.getState()[field], 37)) throw new Error('Keep and exit changed the position');\nif (new URLSearchParams(location.search).get('lesson')) throw new Error('URL still names the lesson after exit');\n// 3. Restore and exit: the position from before the lesson returns.\nwindow.astrolabe.setRete(77); await frames();\nawait window.astrolabe.inspect.openStep(lessonId, index);\nawait settled();\nawait interrupt();\nalertButton('Restore pre-lesson setup and exit').click(); await frames();\nif (panel().dataset.lesson) throw new Error('lesson still open after Restore and exit');\nif (document.activeElement === document.body) throw new Error('focus fell to the page body after leaving the lesson');\nif (!near(window.astrolabe.getState().reteRotation, 77) && field === 'reteRotation') throw new Error('Restore did not bring back the earlier position');\nsessionStorage.setItem('p04-step', demo.id);\nhistory.replaceState(null, '', location.pathname + '?lesson=' + lessonId + '&step=' + demo.id + '&lv=1'); setTimeout(() => location.reload(), 0);\n})()"
+        },
+        {
+          "waitFor": "aside.astrolabe-guide[data-lesson=\"front.foundations.v1\"][data-step-phase]"
+        },
+        {
+          "eval": "(async () => { const frames = (n = 2) => new Promise((resolve) => { const tick = (k) => k <= 0 ? resolve() : requestAnimationFrame(() => tick(k - 1)); tick(n); });\nconst panel = () => document.querySelector('aside.astrolabe-guide');\nconst buttons = () => [...document.querySelectorAll('.lesson-actions button')];\nconst named = (name) => buttons().find((b) => b.textContent === name);\nconst settled = async () => { for (let i = 0; i < 200; i += 1) { const phase = panel()?.dataset.stepPhase; if (phase && phase !== 'demonstrating') return phase; await frames(1); } throw new Error('step never settled'); };\nconst near = (a, b, t = 0.01) => Math.abs((((a - b) % 360) + 540) % 360 - 180) <= t;\n\n// Refresh on a demonstration step: the shared link replays it and settles at its end.\nawait settled();\nconst lessonId = 'front.foundations.v1';\nconst step = window.astrolabe.inspect.step(lessonId, sessionStorage.getItem('p04-step'));\nconst demo = step.demonstration;\nif (panel().dataset.step !== step.id) throw new Error('refresh opened ' + panel().dataset.step);\nif (!near(window.astrolabe.getState()[demo.field], demo.to)) throw new Error('refresh did not settle the demonstration');\nif (!named('Back') || !named('Replay')) throw new Error('refresh left the step without actions');\n})()"
+        }
+      ],
+      "expect": {
+        "state": "ready"
+      }
+    },
+    {
+      "label": "lesson-fits-one-screen",
+      "steps": [
+        {
+          "eval": "(async () => { const frames = (n = 2) => new Promise((resolve) => { const tick = (k) => k <= 0 ? resolve() : requestAnimationFrame(() => tick(k - 1)); tick(n); });\nconst panel = () => document.querySelector('aside.astrolabe-guide');\nconst buttons = () => [...document.querySelectorAll('.lesson-actions button')];\nconst named = (name) => buttons().find((b) => b.textContent === name);\nconst settled = async () => { for (let i = 0; i < 200; i += 1) { const phase = panel()?.dataset.stepPhase; if (phase && phase !== 'demonstrating') return phase; await frames(1); } throw new Error('step never settled'); };\nconst near = (a, b, t = 0.01) => Math.abs((((a - b) % 360) + 540) % 360 - 180) <= t;\nconst inView = (el, what) => { const r = el.getBoundingClientRect(); if (r.width <= 0 || r.height <= 0 || r.top < 0 || r.left < 0 || r.bottom > window.innerHeight + 0.5 || r.right > window.innerWidth + 0.5) throw new Error(what + ' is not inside the viewport: ' + JSON.stringify({ top: r.top, bottom: r.bottom, left: r.left, right: r.right, vh: window.innerHeight })); return r; };\nconst together = (what) => { inView(document.querySelector('#lesson-step-heading'), what + ': the step heading'); inView(document.querySelector('.astro-instrument'), what + ': the instrument'); inView(named('Next'), what + ': the Next button'); };\n\n// Start lesson: focus moves to the step heading, never the body; the settings are folded away and the angle inputs are gone.\ndocument.querySelector('[data-testid=\"start-front.foundations.v1\"]').click();\nawait settled();\nawait frames(3);\nif (document.activeElement?.id !== 'lesson-step-heading') throw new Error('Start lesson did not focus the step heading: ' + (document.activeElement?.id || document.activeElement?.tagName));\nif (document.querySelector('[data-testid=rete-angle], [data-testid=rule-angle], [data-testid=alidade-angle]')) throw new Error('numeric angle inputs are shown during a lesson');\nconst settings = document.querySelector('details.settings-disclosure');\nif (!settings || settings.open) throw new Error('the instrument settings should be a closed disclosure during a lesson');\nif (!document.querySelector('[data-testid=face-toggle]')?.offsetParent || !document.querySelector('[data-testid=magnify-toggle]')?.offsetParent) throw new Error('Show back / Magnify must stay reachable');\nif (document.querySelector('.lesson-actions button')?.textContent === 'Exit' || [...document.querySelectorAll('.lesson-actions button')].some((b) => b.textContent === 'Exit')) throw new Error('Exit duplicates All lessons');\n\n// (a) Heading, instrument and Next together in the viewport; still true after scrolling (instrument and actions are pinned).\ntogether('step 1');\nwindow.scrollTo(0, 400); await frames();\ninView(document.querySelector('.astro-instrument'), 'after scrolling: the instrument');\ninView(named('Next'), 'after scrolling: the Next button');\nwindow.scrollTo(0, 0); await frames();\nif (document.documentElement.scrollWidth > window.innerWidth) throw new Error('horizontal overflow in a lesson');\n\n// (c) A demonstrate step passes by itself: Next is enabled and the result is shown, with no Check to press.\nnamed('Next').click(); await settled(); await frames(3);\nnamed('Next').click(); await settled(); await frames(3);\nif (panel().dataset.step !== 'moving-rete') throw new Error('expected moving-rete, at ' + panel().dataset.step);\nif (document.activeElement?.id !== 'lesson-step-heading') throw new Error('Next did not focus the new step heading: ' + (document.activeElement?.id || document.activeElement?.tagName));\nif (named('Check')) throw new Error('a demonstrate step should not offer Check');\nif (named('Next').disabled || panel().dataset.stepPhase !== 'passed') throw new Error('the demonstration did not pass by itself: ' + panel().dataset.stepPhase);\nif (!document.querySelector('.lesson-result')) throw new Error('no result after the demonstration');\ntogether('step 2');\n\n// (b) Magnify: pressed state flips and the highlighted part gets bigger (or smaller) on screen.\nawait window.astrolabe.inspect.openStep('night.time-by-star.v1', 'night-problem');\nawait frames(4);\nconst toggle = document.querySelector('[data-testid=magnify-toggle]');\nif (!toggle.hasAttribute('aria-pressed')) throw new Error('Magnify has no pressed state');\nconst size = () => { const r = document.querySelector('[data-part=\"star-pointer\"][data-star=\"arcturus\"] .astro-star-dot').getBoundingClientRect(); return Math.max(r.width, r.height); };\nconst phone = window.innerWidth <= 520;\nconst first = { pressed: toggle.getAttribute('aria-pressed') === 'true', size: size() };\nif (first.pressed !== phone) throw new Error('Magnify default should be ' + phone + ' here, is ' + first.pressed);\ntoggle.click(); await frames(3);\nconst second = { pressed: toggle.getAttribute('aria-pressed') === 'true', size: size() };\nif (second.pressed === first.pressed) throw new Error('Magnify did not toggle');\nconst ratio = second.pressed ? second.size / first.size : first.size / second.size;\nif (!(ratio > 1.8)) throw new Error('Magnify did not enlarge the highlighted part enough: ' + first.size + ' vs ' + second.size);\nif (!document.querySelector('.magnify-frame').classList.contains('is-magnified') && second.pressed) throw new Error('frame not magnified');\nif (document.documentElement.scrollWidth > window.innerWidth) throw new Error('horizontal overflow when magnified');\nif (second.pressed) {\n  // The highlighted star stays inside the frame when magnified.\n  const f = document.querySelector('.magnify-frame').getBoundingClientRect();\n  const d = document.querySelector('[data-part=\"star-pointer\"][data-star=\"arcturus\"] .astro-star-dot').getBoundingClientRect();\n  if (d.left < f.left - 1 || d.right > f.right + 1 || d.top < f.top - 1 || d.bottom > f.bottom + 1) throw new Error('the highlighted star is outside the magnified view');\n}\n// Keyboard still turns a rotating part while magnified.\nif (!second.pressed) { toggle.click(); await frames(3); }\nconst rete = document.querySelector('[data-part=rete][role=slider]'); rete.focus();\nconst before = window.astrolabe.getState().reteRotation;\nrete.dispatchEvent(new KeyboardEvent('keydown', { key: 'ArrowRight', bubbles: true })); await frames();\nif (window.astrolabe.getState().reteRotation === before) throw new Error('keyboard rotation stopped working while magnified');\n// Toggling back restores the full view.\ntoggle.click(); await frames(3);\nif (document.querySelector('.magnify-frame').classList.contains('is-magnified')) throw new Error('Magnify did not turn off');\n\n// (R2-06) A lesson step does not repeat \"this plate matches your latitude\".\nawait window.astrolabe.inspect.openStep('front.foundations.v1', 0); await frames(3);\nif (document.querySelector('[data-testid=mismatch]')) throw new Error('the matching-plate banner is shown during a lesson step');\n// (UXM-16) Magnify stays reachable while the step text is scrolled.\n{\n  const magnify = document.querySelector('[data-testid=magnify-toggle]');\n  window.scrollTo(0, 400); await frames(2);\n  if (window.innerWidth <= 820) inView(magnify, 'after scrolling: the Magnify toggle');\n  window.scrollTo(0, 0); await frames(2);\n}\n\n// (d) Arriving by Back puts the heading just below the sticky instrument (single column), with the instruction, cue and options\n// on screen with it; on desktop the whole action row is inside the viewport at scrollTop 0.\nconst single = window.innerWidth <= 820;\nconst arrived = async (what, extra) => {\n  await settled(); await frames(5);\n  const heading = document.querySelector('#lesson-step-heading');\n  const footer = document.querySelector('.lesson-footer').getBoundingClientRect();\n  if (single) {\n    const stage = document.querySelector('.instrument-stage').getBoundingClientRect();\n    const h = inView(heading, what + ': the step heading');\n    if (h.top < stage.bottom - 1) throw new Error(what + ': the heading is hidden behind the instrument');\n    if (h.top > stage.bottom + 80 && window.scrollY < document.documentElement.scrollHeight - window.innerHeight - 2) throw new Error(what + ': the heading is far below the instrument: ' + JSON.stringify({ top: h.top, stageBottom: stage.bottom }));\n    const instruction = document.querySelector('.lesson-instruction').getBoundingClientRect();\n    if (instruction.top > footer.top - 20) throw new Error(what + ': the instruction is not on screen');\n    if (extra) { const t = extra().getBoundingClientRect(); if (t.top > footer.top - 20) throw new Error(what + ': ' + extra.name + ' is not on screen'); }\n  } else {\n    window.scrollTo(0, 0); await frames(2);\n    if (window.scrollY !== 0) throw new Error('could not return to scrollTop 0');\n    inView(document.querySelector('.lesson-footer'), what + ': the action row');\n  }\n  inView(named('Next'), what + ': the Next button');\n  inView(document.querySelector('.astro-instrument'), what + ': the instrument');\n};\nconst choiceOptions = () => document.querySelector('[data-testid=choice]');\nawait window.astrolabe.inspect.openStep('front.local-sky.v1', 'compare-plate');\nnamed('Back').click(); await frames(2);\nif (panel().dataset.step !== 'read-regulus') throw new Error('Back should land on read-regulus, is ' + panel().dataset.step);\nawait arrived('choice step read-regulus', choiceOptions);\n\nawait window.astrolabe.inspect.openStep('front.local-sky.v1', 'restore-plate');\nnamed('Back').click(); await frames(2);\nif (panel().dataset.step !== 'compare-plate') throw new Error('Back should land on compare-plate, is ' + panel().dataset.step);\nawait arrived('plate step compare-plate', () => document.querySelector('[data-testid=lesson-plate-select]'));\nif (document.querySelector('details.settings-disclosure')?.open) throw new Error('the settings disclosure opened on a plate step');\nconst plate = document.querySelector('[data-testid=lesson-plate-select]');\nif (!plate || !plate.closest('.astrolabe-guide')) throw new Error('the plate menu is not in the guide on a plate step');\ninView(plate, 'the plate menu');\nif (document.querySelector('[data-testid=city-select]')?.checkVisibility()) throw new Error('the other settings are visible on a plate step');\n// The guide's menu and the settings' menu are the same state.\nplate.value = [...plate.options].find((o) => o.textContent !== 'Exact').value;\nplate.dispatchEvent(new Event('change', { bubbles: true })); await frames(2);\nif (document.querySelector('[data-testid=plate-select]').value !== plate.value) throw new Error('the two plate menus disagree');\nnamed('Next').click(); await frames(2);\nawait window.astrolabe.inspect.openStep('front.local-sky.v1', 'restore-plate'); await frames(2);\nnamed('Back').click(); await frames(2);\n})()"
+        }
+      ],
+      "expect": {
+        "state": "ready"
+      }
+    },
+    {
+      "label": "phase12-frames-and-marks",
+      "steps": [
+        {
+          "eval": "(async () => { const frames = (n = 2) => new Promise((resolve) => { const tick = (k) => k <= 0 ? resolve() : requestAnimationFrame(() => tick(k - 1)); tick(n); });\nconst panel = () => document.querySelector('aside.astrolabe-guide');\nconst settled = async () => { for (let i = 0; i < 200; i += 1) { const phase = panel()?.dataset.stepPhase; if (phase && phase !== 'demonstrating') return phase; await frames(1); } throw new Error('step never settled'); };\nconst near = (a, b, t = 0.01) => Math.abs((((a - b) % 360) + 540) % 360 - 180) <= t;\nconst inspect = window.astrolabe.inspect;\nconst phone = window.matchMedia('(max-width: 520px)').matches;\nconst selectorOf = (ref) => typeof ref === 'string' ? `[data-part=\"${ref}\"]` : (() => { const key = Object.keys(ref).find((k) => k !== 'part'); return `[data-part=\"${ref.part}\"][data-${key}=\"${ref[key]}\"]`; })();\n// Fine readings: the frame names the reading spot and the tool; on a phone Magnify engages and shows every framed element.\nconst framed = [['back.measure-altitude.v1', 'read-between'], ['back.sun-place.v1', 'read-longitude'], ['back.sun-place.v1', 'read-second'], ['solar.time-by-sun.v1', 'set-altitude'], ['solar.time-by-sun.v1', 'degrees-to-hours'], ['night.time-by-star.v1', 'star-altitude'], ['back.equation-time.v1', 'read-eot'], ['front.unequal-hours.v1', 'end-of-hour-three'], ['front.set-sky.v1', 'second-set-time'], ['back.shadow-square.v1', 'steep'], ['back.shadow-square.v1', 'low']];\nfor (const [lesson, id] of framed) {\n  await inspect.openStep(lesson, id); await settled(); await frames(6); await new Promise((r) => setTimeout(r, 250));\n  const step = inspect.step(lesson, id);\n  if (!step.frame || !step.frame.length) throw new Error(`${id}: no Magnify frame`);\n  const els = step.frame.flatMap((ref) => [...document.querySelectorAll('.astro-instrument ' + selectorOf(ref))]);\n  if (els.length < step.frame.length) throw new Error(`${id}: a frame part did not resolve`);\n  if (phone) {\n    const frame = document.querySelector('.magnify-frame');\n    if (!frame.classList.contains('is-magnified')) throw new Error(`${id}: Magnify did not engage on a phone`);\n    const box = frame.getBoundingClientRect();\n    for (const el of els) { const r = el.getBoundingClientRect(); const cx = (r.left + r.right) / 2, cy = (r.top + r.bottom) / 2; if (cx < box.left || cx > box.right || cy < box.top || cy > box.bottom) throw new Error(`${id}: framed ${el.getAttribute('data-part')} is outside the magnified view`); }\n  }\n}\n// The red marks the shadow-square cues name are highlighted: one numeral, with a locator.\nfor (const [id, value] of [['steep', 60], ['low', 30]]) {\n  await inspect.openStep('back.shadow-square.v1', id); await settled(); await frames(4);\n  const marks = [...document.querySelectorAll(`[data-part=\"altitude-scale\"][data-altitude=\"${value}\"]`)];\n  if (marks.length !== 1 || !marks[0].hasAttribute('data-highlighted')) throw new Error(`${id}: the red ${value} is not highlighted`);\n  if (!document.querySelector('[data-face=\"back\"] .astro-hl-locator')) throw new Error(`${id}: the red ${value} has no locator`);\n  if (getComputedStyle(marks[0]).fill !== 'rgb(122, 22, 16)') throw new Error(`${id}: the red ${value} is not red`);\n}\n// Rule-only your-turn steps start well aside of the answer, either way round (L8 second-read was 6.6° from its flip).\nfor (const [lesson, id] of [['night.time-by-star.v1', 'second-read'], ['back.sun-place.v1', 'find-second-point'], ['front.set-sky.v1', 'second-set-time']]) {\n  await inspect.openStep(lesson, id); await settled();\n  const answer = inspect.step(lesson, id).solution.ruleRotation;\n  const rule = window.astrolabe.getState().ruleRotation;\n  if (near(rule, answer, 30) || near(rule, answer + 180, 30)) throw new Error(`${id}: the rule starts within 30° of its answer`);\n}\n// Lesson 11 works in whole minutes, as Lesson 9: 20:16 and 21:01.\nconst right = (lesson, id) => inspect.step(lesson, id).check.options.find((o) => o.correct).label;\nif (right('front.set-sky.v1', 'reverse-problem') !== '20:16') throw new Error('reverse-problem is not 20:16');\nif (right('front.set-sky.v1', 'second-reverse') !== 'About 21:01') throw new Error('second-reverse is not 21:01');\n// The monthly equation-of-time table is also in the Reference tab, with the lesson's values.\nconst loop = inspect.step('back.equation-time.v1', 'eot-loop').result;\n[...document.querySelectorAll('.lesson-player button')].find((b) => b.textContent === 'All lessons')?.click(); await frames(3);\ndocument.querySelector('#reference-tab')?.click(); await frames(3);\nconst table = document.querySelector('[data-testid=\"reference-eot-table\"]');\nif (!table) throw new Error('no equation-of-time table in the Reference tab');\nconst rows = [...table.querySelectorAll('tbody tr')].map((tr) => tr.textContent.replace(/\\s+/g, ' ').trim());\nif (rows.length !== 12) throw new Error('the Reference table has ' + rows.length + ' months');\nfor (const row of rows) { const [month, value] = [row.slice(0, 3), row.slice(3).trim()]; if (!loop.includes(`${month} ${value}`)) throw new Error(`Reference ${month} ${value} differs from the lesson table`); }\ndocument.querySelector('#learn-tab, [role=tab]')?.click();\n})()"
+        }
+      ],
+      "expect": {
+        "state": "ready"
+      }
     }
   ]
 }

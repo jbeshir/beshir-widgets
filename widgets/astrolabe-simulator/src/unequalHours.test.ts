@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import { PLATES } from './data/plates';
 import { OBLIQUITY_DEG, horizon, rOfDec } from './geometry';
-import { UNEQUAL_HOUR_LINES, unequalHourCurve, unequalHourPath, unequalHourPoint } from './unequalHours';
+import { UNEQUAL_HOUR_LABEL_DECLINATION, UNEQUAL_HOUR_LINES, unequalHourCurve, unequalHourLabels, unequalHourPath, unequalHourPoint } from './unequalHours';
 
 const R = 100;
 
@@ -71,5 +71,39 @@ describe('front unequal-hour geometry', () => {
     expect(unequalHourPoint(80, 6, OBLIQUITY_DEG, R)).toBeNull();
     expect(unequalHourPoint(80, 6, -OBLIQUITY_DEG, R)).toBeNull();
     expect(unequalHourPoint(80, 6, 0, R)).not.toBeNull();
+  });
+});
+
+describe('front unequal-hour numerals (FG-2b)', () => {
+  const R = 340;
+  const latitude = 51.5;
+
+  it('labels lines I–XI with Roman numerals', () => {
+    expect(unequalHourLabels(latitude, R).map((label) => label.roman)).toEqual(
+      ['I', 'II', 'III', 'IV', 'V', 'VI', 'VII', 'VIII', 'IX', 'X', 'XI'],
+    );
+  });
+
+  it('places each numeral on its own line, near the end closest to the horizon', () => {
+    const h = horizon(latitude, R);
+    if (h.kind !== 'circle') throw new Error('expected a circular horizon');
+    const toHorizon = (p: { x: number; y: number }) => Math.abs(Math.hypot(p.x - h.cx, p.y - h.cy) - Math.abs(h.r));
+    for (const label of unequalHourLabels(latitude, R)) {
+      const onLine = unequalHourPoint(latitude, label.hour, UNEQUAL_HOUR_LABEL_DECLINATION, R);
+      expect(onLine).not.toBeNull();
+      expect(label.point.x).toBeCloseTo(onLine!.x, 9);
+      expect(label.point.y).toBeCloseTo(onLine!.y, 9);
+      const cancerEnd = unequalHourPoint(latitude, label.hour, OBLIQUITY_DEG, R)!;
+      const capricornEnd = unequalHourPoint(latitude, label.hour, -OBLIQUITY_DEG, R)!;
+      expect(toHorizon(cancerEnd)).toBeLessThan(toHorizon(capricornEnd));
+      expect(Math.hypot(label.point.x - cancerEnd.x, label.point.y - cancerEnd.y))
+        .toBeLessThan(Math.hypot(label.point.x - capricornEnd.x, label.point.y - capricornEnd.y));
+    }
+  });
+
+  it('puts VI on the lower meridian', () => {
+    const six = unequalHourLabels(latitude, R).find((label) => label.roman === 'VI');
+    expect(six?.point.x).toBeCloseTo(0, 9);
+    expect(six?.point.y).toBeLessThan(0);
   });
 });

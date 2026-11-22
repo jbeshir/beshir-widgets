@@ -1,6 +1,6 @@
 export const HORARY_RADIUS = 385;
 export const HORARY_DIVISION_DEGREES = 15;
-export const BACK_VIEWBOX_SIZE = 1240;
+export const BACK_VIEWBOX_SIZE = 1290;
 export const HORARY_LABEL_FONT_SIZE = 15;
 export const HORARY_SIDE_FONT_SIZE = 14;
 export const HORARY_TITLE_FONT_SIZE = 14;

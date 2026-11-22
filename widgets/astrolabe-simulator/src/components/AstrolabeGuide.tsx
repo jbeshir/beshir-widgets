@@ -4,11 +4,16 @@ import {
   applyTransaction, getState, setHighlight, subscribeChanges, useStore,
   type AstrolabeState,
 } from '../store';
-import { animateAngle } from '../tutorial/animation';
-import { LESSONS } from '../tutorial/catalog';
+import { runDemonstration } from '../tutorial/animation';
+import { LESSONS, WATCH } from '../tutorial/catalog';
 import { evaluateCheckpoint } from '../tutorial/checkpoints';
+import { useHighlights } from '../tutorial/highlights';
+import { NO_FRAME, setLessonUi } from '../lessonUi';
+import { partId } from '../tutorial/parts';
 import { composeTutorialSearch, parseTutorialSearch } from '../tutorial/url';
-import type { Lesson, Snapshot } from '../tutorial/types';
+import type { Lesson, LessonCheck, Predicate, Snapshot } from '../tutorial/types';
+import { ChoiceQuestion, type ChoiceFeedback } from './ChoiceQuestion';
+import { PlateSelect } from './PlateSelect';
 
 const PARTS = [
   ['mater', 'Mater', 'The body and graduated limb of the instrument.', 'both'],
@@ -26,6 +31,28 @@ function applySnapshot(snapshot: Snapshot, operationId: number, syncUrl = true):
     visibility: { ...snapshot.visibility },
   }, { source: 'tutorial', operationId, syncUrl });
 }
+/**
+ * Single column: scroll so the step heading sits just below the sticky instrument, leaving the
+ * heading, instruction, cue and options on screen together (not the top of the page).
+ */
+function revealStepHeading(heading: HTMLElement): void {
+  if (typeof window.matchMedia !== 'function' || !window.matchMedia('(max-width: 820px)').matches) return;
+  const place = () => {
+    const stage = document.querySelector('.lesson-active .instrument-stage');
+    if (!stage || !heading.isConnected) return;
+    const gap = 6;
+    window.scrollTo(0, Math.max(0, window.scrollY + heading.getBoundingClientRect().top - stage.getBoundingClientRect().height - gap));
+  };
+  // The lesson layout (sticky instrument) is applied a frame after the step renders.
+  requestAnimationFrame(() => requestAnimationFrame(place));
+}
+/** Scrolls `el` into view (the panel on a desktop, the page on a phone) so it ends above the pinned action row. */
+function revealAbovePinnedRow(el: HTMLElement | null): void {
+  const footer = document.querySelector('.lesson-footer');
+  if (!el || !footer) return;
+  el.style.scrollMarginBottom = `${Math.ceil(footer.getBoundingClientRect().height) + 8}px`;
+  el.scrollIntoView({ block: 'nearest' });
+}
 function writeLessonUrl(lesson: Lesson | null, stepIndex: number, push: boolean): void {
   if (typeof window === 'undefined') return;
   const search = composeTutorialSearch(window.location.search, lesson?.id ?? null, lesson?.steps[stepIndex]?.id);
@@ -38,22 +65,39 @@ export function AstrolabeGuide(): JSX.Element {
   const [tab, setTab] = useState<'learn' | 'reference'>('learn');
   const [lesson, setLesson] = useState<Lesson | null>(null);
   const [stepIndex, setStepIndex] = useState(0);
-  const [status, setStatus] = useState('');
+  const [status, setStatusText] = useState('');
+  /** Check feedback the learner has to see (not only hear); every other announcement stays visually hidden. */
+  const [statusVisible, setStatusVisible] = useState(false);
+  const setStatus = (text: string, visible = false) => { setStatusText(text); setStatusVisible(visible); };
   const [interrupted, setInterrupted] = useState(false);
   const [complete, setComplete] = useState(false);
   const [checkpointPassed, setCheckpointPassed] = useState(false);
+  const [demonstrating, setDemonstrating] = useState(false);
+  const [choiceIndex, setChoiceIndex] = useState<number | null>(null);
+  const [choiceFeedback, setChoiceFeedback] = useState<ChoiceFeedback | null>(null);
   const restore = useRef<AstrolabeState | null>(null);
   const operationId = useRef(0);
   const animation = useRef<AbortController | null>(null);
   const launchButton = useRef<HTMLElement | null>(null);
+  const nextButton = useRef<HTMLButtonElement | null>(null);
+  const headingRef = useRef<HTMLHeadingElement | null>(null);
+  const alertRef = useRef<HTMLDivElement | null>(null);
+  const catalogHeadingRef = useRef<HTMLHeadingElement | null>(null);
+  /** Where keyboard focus goes after the next render, so it never falls to the page body. */
+  const pendingFocus = useRef<'heading' | 'reveal' | 'catalog' | null>(null);
+  const exitedFrom = useRef<string | null>(null);
   const step = lesson?.steps[stepIndex];
+  useHighlights(lesson && !complete && step ? step.highlights : []);
 
+  const wantsPlate = Boolean(lesson && !complete && step?.highlights.some((ref) => ['plate-selector', 'plate-mismatch'].includes(partId(ref))));
+  const wantsMismatch = Boolean(lesson && !complete && step?.highlights.some((ref) => partId(ref) === 'plate-mismatch'));
   const mismatch = useMemo(() => {
     const difference = Math.abs(Math.abs(simulator.location.lat) - simulator.plateLatitude);
     const message = difference < 0.5
       ? `This ${simulator.plateLatitude.toFixed(2)}° plate matches your latitude closely.`
       : `Your latitude and this plate differ by ${difference.toFixed(2)}°. Horizon and altitude readings can be wrong by about ${difference.toFixed(1)}°; near the horizon, timing may shift by a few minutes per degree. The star map and Sun position remain correct.`;
-    return message + (simulator.location.lat < 0 ? ' This simulator uses northern plates and does not reverse the construction for the southern hemisphere.' : '');
+    const text = message + (simulator.location.lat < 0 ? ' This simulator uses northern plates and does not reverse the construction for the southern hemisphere.' : '');
+    return { text, matches: difference < 0.5 };
   }, [simulator.location.lat, simulator.plateLatitude]);
 
   const runStep = (nextLesson: Lesson, index: number, push: boolean) => {
@@ -62,27 +106,43 @@ export function AstrolabeGuide(): JSX.Element {
     const id = operationId.current;
     const nextStep = nextLesson.steps[index];
     setLesson(nextLesson); setStepIndex(index); setInterrupted(false); setComplete(false); setCheckpointPassed(false);
-    setStatus(`Step ${index + 1}: ${nextStep.title}. ${nextStep.result}`);
+    setChoiceIndex(null); setChoiceFeedback(null); setDemonstrating(false);
+    setStatus(nextStep.check ? `Step ${index + 1}: ${nextStep.title}.` : `Step ${index + 1}: ${nextStep.title}. ${nextStep.result}`);
+    const previousPlate = getState().plateLatitude;
     applySnapshot(nextStep.snapshot, id);
     writeLessonUrl(nextLesson, index, push);
     if (nextStep.demonstration) {
       const controller = new AbortController();
       animation.current = controller;
-      const demo = nextStep.demonstration;
-      const motions = [demo, ...(demo.companion ? [demo.companion] : [])];
-      applyTransaction(Object.fromEntries(motions.map((motion) => [motion.field, motion.from])),
-        { source: 'tutorial', operationId: id, syncUrl: false });
-      void Promise.all(motions.map((motion) => animateAngle({
-        ...motion, durationMs: demo.durationMs, reducedMotion: simulator.reducedMotion, signal: controller.signal,
-        update: (value) => applyTransaction({ [motion.field]: value }, { source: 'tutorial', operationId: id, syncUrl: false }),
-      }))).then((outcomes) => {
-        if (id !== operationId.current || outcomes.includes('aborted')) return;
+      setDemonstrating(true);
+      void runDemonstration(nextStep.demonstration, {
+        reducedMotion: getState().reducedMotion, signal: controller.signal, previousPlate,
+        apply: (patch, final) => applyTransaction(patch, { source: 'tutorial', operationId: id, syncUrl: final }),
+      }).then((outcome) => {
+        if (id !== operationId.current || outcome === 'aborted') return;
         animation.current = null;
-        applyTransaction(Object.fromEntries(motions.map((motion) => [motion.field, motion.to])),
-          { source: 'tutorial', operationId: id, syncUrl: true });
-        setStatus(nextStep.result);
+        setDemonstrating(false);
+        // A demonstration passes its own check when it ends (SYLLABUS §0.3): nothing for the learner to press.
+        const passed = Boolean(nextStep.check) && nextStep.check?.kind !== 'choice' && evaluateCheckpoint(nextStep.check as Predicate, getState());
+        setCheckpointPassed(passed);
+        const stopped = nextStep.stopCue ? `Stopped: ${nextStep.stopCue}` : nextStep.title;
+        setStatus(passed ? `${stopped} ${nextStep.result}` : stopped);
       });
     }
+  };
+  const checkStep = (check: LessonCheck, result: string) => {
+    if (check.kind === 'choice') {
+      const option = choiceIndex === null ? undefined : check.options[choiceIndex];
+      if (!option) { setStatus('Choose an answer first.', true); return; }
+      const note = option.correct ? result : option.misconception ?? '';
+      setCheckpointPassed(Boolean(option.correct));
+      setChoiceFeedback({ correct: Boolean(option.correct), note });
+      setStatus(`${option.correct ? 'Correct.' : 'Not quite.'} ${note}`);
+      return;
+    }
+    const passed = evaluateCheckpoint(check, getState());
+    setCheckpointPassed(passed);
+    setStatus(passed ? `That is in place. ${result}` : 'Not yet. Make the alignment described under “Stop when” and check again.', !passed);
   };
   const start = (nextLesson: Lesson, button?: HTMLElement) => {
     if (!restore.current) restore.current = getState();
@@ -92,21 +152,58 @@ export function AstrolabeGuide(): JSX.Element {
   const exit = (restoreState: boolean) => {
     animation.current?.abort(); operationId.current += 1;
     if (restoreState && restore.current) applyTransaction(restore.current, { source: 'tutorial', operationId: operationId.current });
-    setLesson(null); setStepIndex(0); setInterrupted(false); setComplete(false); setStatus('Returned to the lesson catalog.');
+    setLesson(null); setStepIndex(0); setInterrupted(false); setComplete(false); setDemonstrating(false); setStatus('Returned to the lesson catalog.');
     restore.current = null; writeLessonUrl(null, 0, true);
-    queueMicrotask(() => launchButton.current?.focus());
+    exitedFrom.current = lesson?.id ?? null;
+    pendingFocus.current = 'catalog';
   };
   const closeFromHistory = () => {
     animation.current?.abort(); animation.current = null; operationId.current += 1;
-    setLesson(null); setStepIndex(0); setInterrupted(false); setComplete(false);
+    setLesson(null); setStepIndex(0); setInterrupted(false); setComplete(false); setDemonstrating(false);
     setCheckpointPassed(false); restore.current = null;
   };
+
+  useEffect(() => {
+    if (checkpointPassed && step?.check?.kind === 'choice') nextButton.current?.focus({ preventScroll: true });
+  }, [checkpointPassed]);
+
+  // Focus follows the learner's action: the new step heading, or the lesson they left; never the page body.
+  useEffect(() => {
+    if (pendingFocus.current === 'heading' && headingRef.current) {
+      pendingFocus.current = null;
+      headingRef.current.focus({ preventScroll: true });
+      revealStepHeading(headingRef.current);
+    } else if (pendingFocus.current === 'reveal' && headingRef.current) {
+      // A step opened from a link or refresh: show it as Next and Back do, without moving focus.
+      pendingFocus.current = null;
+      revealStepHeading(headingRef.current);
+    } else if (pendingFocus.current === 'catalog' && !lesson) {
+      pendingFocus.current = null;
+      const card = exitedFrom.current ? document.querySelector<HTMLElement>(`[data-testid="start-${CSS.escape(exitedFrom.current)}"]`) : null;
+      (card ?? catalogHeadingRef.current)?.focus();
+    }
+  });
+  useEffect(() => { if (interrupted) alertRef.current?.focus(); }, [interrupted]);
+  // The result of Check is shown under the options, above the pinned actions: bring it into view clear of them.
+  useEffect(() => { if (choiceFeedback) revealAbovePinnedRow(document.getElementById('choice-feedback')); }, [choiceFeedback]);
+
+  useEffect(() => {
+    setLessonUi({
+      active: Boolean(lesson),
+      stepKey: lesson && step ? `${lesson.id}/${step.id}/${complete}` : '',
+      frame: (!complete && step?.frame) || NO_FRAME,
+      hasHighlights: Boolean(step && !complete && step.highlights.length),
+      settled: !demonstrating,
+      solution: (!complete && step?.mode === 'your-turn' && step.solution) || null,
+    });
+  }, [lesson, stepIndex, complete, demonstrating]);
+  useEffect(() => () => setLessonUi({ active: false, stepKey: '', frame: NO_FRAME, hasHighlights: false, settled: true, solution: null }), []);
 
   useEffect(() => subscribeChanges((change) => {
     if (!lesson || !animation.current || animation.current.signal.aborted) return;
     if (change.meta.source === 'tutorial' && change.meta.operationId === operationId.current) return;
-    animation.current.abort(); operationId.current += 1; setInterrupted(true);
-    setStatus('The instrument moved away from this step. Restart the step or keep the position you chose.');
+    animation.current.abort(); operationId.current += 1; setInterrupted(true); setDemonstrating(false);
+    setStatus('The instrument moved while this step was playing. Restart the step, continue from your position, or leave the lesson.');
   }), [lesson]);
 
   useEffect(() => {
@@ -122,6 +219,8 @@ export function AstrolabeGuide(): JSX.Element {
       if (!linkedLesson) return;
       if (!restore.current) restore.current = getState();
       runStep(linkedLesson, parsed.stepIndex, false);
+      pendingFocus.current = 'reveal';
+      if (parsed.unavailable) setStatus(parsed.unavailable);
       if (parsed.needsRepair) writeLessonUrl(linkedLesson, parsed.stepIndex, false);
     };
     openFromUrl();
@@ -129,21 +228,26 @@ export function AstrolabeGuide(): JSX.Element {
     return () => window.removeEventListener('popstate', openFromUrl);
   }, []);
 
-  return <aside className="info-panel astrolabe-guide" aria-label="Astrolabe Guide">
-    <p className="mismatch" data-testid="mismatch" data-tutorial-target="setup.plate-mismatch" role="status" aria-live="polite">{mismatch}</p>
+  const phase = !lesson ? undefined : complete ? 'complete' : interrupted ? 'interrupted'
+    : demonstrating ? 'demonstrating' : checkpointPassed ? 'passed' : 'ready';
+
+  return <aside className="info-panel astrolabe-guide" aria-label="Astrolabe Guide"
+    data-lesson={lesson?.id} data-step={step?.id} data-step-phase={phase}>
+    {(!lesson || !mismatch.matches || wantsMismatch) &&
+      <p className="mismatch" data-testid="mismatch" data-part="plate-mismatch" role="status" aria-live="polite">{mismatch.text}</p>}
     {!lesson ? <>
       <div className="guide-tabs" role="tablist" aria-label="Astrolabe Guide views">
         <button role="tab" id="learn-tab" aria-selected={tab === 'learn'} aria-controls="learn-panel" onClick={() => setTab('learn')}>Learn</button>
         <button role="tab" id="reference-tab" aria-selected={tab === 'reference'} aria-controls="reference-panel" onClick={() => setTab('reference')}>Reference</button>
       </div>
       {tab === 'learn' ? <section id="learn-panel" role="tabpanel" aria-labelledby="learn-tab">
-        <h2>Astrolabe Guide</h2>
+        <h2 tabIndex={-1} ref={catalogHeadingRef}>Astrolabe Guide</h2>
         <p className="guide-intro">Choose a guided lesson to learn the instrument step by step.</p>
         <div className="lesson-list" aria-label="Lessons in course order">
           {LESSONS.map((item, index) => <article className="lesson-card" key={item.id}>
             <h3>{index + 1}. {item.title}</h3><p>{item.summary}</p>
             <p className="lesson-meta">{item.steps.length} steps</p>
-            <button data-testid={`start-${item.id}`} onClick={(event) => start(item, event.currentTarget)}>Start lesson</button>
+            <button data-testid={`start-${item.id}`} onClick={(event) => { pendingFocus.current = 'heading'; start(item, event.currentTarget); }}>Start lesson</button>
           </article>)}
         </div>
       </section> : <Reference simulator={simulator} />}
@@ -152,37 +256,51 @@ export function AstrolabeGuide(): JSX.Element {
       <p className="lesson-breadcrumb">{lesson.title}</p>
       {!complete && step && <>
         <p className="lesson-progress">Step {stepIndex + 1} of {lesson.steps.length}</p>
-        <h2 id="lesson-step-heading">{step.title}</h2>
-        <p>{step.body}</p>
-        <p className="lesson-result"><strong>Result:</strong> {step.result}</p>
-        {interrupted && <div className="interruption" role="alert">
-          <p>The instrument moved away from the position shown in this step. You can restart the step or continue with your own position.</p>
-          <button onClick={() => runStep(lesson, stepIndex, false)}>Restart this step</button>
+        <h2 id="lesson-step-heading" tabIndex={-1} ref={headingRef}>{step.title}</h2>
+        {wantsPlate && <div className="lesson-plate"><PlateSelect testId="lesson-plate-select" part /></div>}
+        <p className="lesson-purpose">{step.purpose}</p>
+        <p className="lesson-instruction">{step.body}</p>
+        {step.stopCue && <p className="lesson-stop"><strong>{step.mode === 'read' ? 'Look for:' : 'Stop when:'}</strong> {step.stopCue}</p>}
+        {(!step.check || (checkpointPassed && step.check.kind !== 'choice')) && <p className="lesson-result"><strong>Result:</strong> {step.result}</p>}
+        {step.check?.kind === 'choice' && <ChoiceQuestion check={step.check} selected={choiceIndex} feedback={choiceFeedback}
+          onSelect={(index) => { setChoiceIndex(index); setChoiceFeedback(null); setCheckpointPassed(false); }} />}
+        {interrupted && <div className="interruption" role="alert" tabIndex={-1} ref={alertRef}>
+          <p>The instrument was moved while this step was playing. Restart the step to see it again, continue from the position you chose, or leave the lesson, either keeping this setup or restoring the setup you had before the lesson.</p>
+          <button onClick={() => { pendingFocus.current = 'heading'; runStep(lesson, stepIndex, false); }}>Restart this step</button>
+          <button onClick={() => { pendingFocus.current = 'heading'; setInterrupted(false); setStatus('Continuing from your position. Make the alignment described under “Stop when”, then check.'); }}>Continue with my position</button>
           <button onClick={() => exit(false)}>Keep this setup and exit</button>
-          <button onClick={() => exit(true)}>Restore and exit</button>
+          <button onClick={() => exit(true)}>Restore pre-lesson setup and exit</button>
         </div>}
-        {!interrupted && <div className="lesson-actions">
-          <button disabled={stepIndex === 0} onClick={() => runStep(lesson, stepIndex - 1, true)}>Back</button>
-          <button onClick={() => runStep(lesson, stepIndex, false)}>Replay</button>
-          {step.check && <button onClick={() => {
-            const passed = evaluateCheckpoint(step.check!, getState()); setCheckpointPassed(passed);
-            setStatus(passed ? `Checkpoint passed. ${step.result}` : 'Not yet. Recreate the visible alignment described in this step and check again.');
-          }}>Check</button>}
-          {stepIndex < lesson.steps.length - 1
-            ? <button disabled={Boolean(step.check) && !checkpointPassed} onClick={() => runStep(lesson, stepIndex + 1, true)}>Next</button>
-            : <button onClick={() => { setComplete(true); setStatus(`Lesson complete. ${step.result}`); }}>Finish</button>}
-          <button onClick={() => exit(false)}>Exit</button>
-        </div>}
+        <div className="lesson-footer">
+          <p className={`sr-status${statusVisible ? '' : ' sr-only'}`} role="status" aria-live="polite">{status}</p>
+          {!interrupted && <div className="lesson-actions">
+            <button disabled={stepIndex === 0} onClick={() => { pendingFocus.current = 'heading'; runStep(lesson, stepIndex - 1, true); }}>Back</button>
+            <button onClick={() => runStep(lesson, stepIndex, false)}>Replay</button>
+            {step.check && (step.mode !== 'demonstrate' || (!demonstrating && !checkpointPassed)) && <button onClick={() => checkStep(step.check!, step.result)}>{step.check.kind === 'choice' ? 'Check answer' : 'Check'}</button>}
+            {stepIndex < lesson.steps.length - 1
+              ? <button ref={nextButton} disabled={Boolean(step.check) && !checkpointPassed}
+                  aria-disabled={Boolean(step.check) && !checkpointPassed}
+                  onClick={() => { pendingFocus.current = 'heading'; runStep(lesson, stepIndex + 1, true); }}>Next</button>
+              : <button onClick={() => { pendingFocus.current = 'heading'; setComplete(true); setStatus(`Lesson complete. ${step.result}`); }}>Finish</button>}
+          </div>}
+        </div>
       </>}
       {complete && step && <div className="completion">
-        <h2 id="lesson-step-heading">Lesson complete</h2>
+        <h2 id="lesson-step-heading" tabIndex={-1} ref={headingRef}>Lesson complete</h2>
         <p>{step.result}</p>
         <button onClick={() => exit(true)}>Return and restore</button>
         <button onClick={() => exit(false)}>Practice with this setup</button>
+        <p className="sr-status sr-only" role="status" aria-live="polite">{status}</p>
       </div>}
     </section>}
-    <p className="sr-status" role="status" aria-live="polite">{status}</p>
+    {!lesson && <p className="sr-status" role="status" aria-live="polite">{status}</p>}
   </aside>;
+}
+
+/** Whole minutes with a true minus sign, as the lesson prints them. */
+function formatEquation(minutes: number): string {
+  const whole = Math.round(minutes);
+  return whole === 0 ? '0' : `${whole < 0 ? '−' : '+'}${Math.abs(whole)}`;
 }
 
 function Reference({ simulator }: { simulator: AstrolabeState }): JSX.Element {
@@ -198,6 +316,12 @@ function Reference({ simulator }: { simulator: AstrolabeState }): JSX.Element {
     <details><summary>Unequal-hour scale</summary>{simulator.face === 'front'
       ? <p>The curves below the horizon divide a path across the sky into twelve unequal hours. To use them for solar time, treat the Sun’s position on the ecliptic as the marker for night; during daylight, use the point directly opposite the Sun. The horizon marks sunset and sunrise, and the middle curve marks the sixth hour. Interpolate between curves.</p>
       : <p>The upper semicircle is the double horary quadrant used to read unequal, or temporal, hours. First set the alidade to the Sun’s noon altitude and note where its reading edge crosses curve VI. Remember that crossing’s distance from the center. Set the alidade to the Sun’s current altitude, find the same distance along its reading edge, and read the hour curve at that point: I–VI before noon or the mirrored VI–XII afterward.</p>}</details>
+    <details><summary>Equation of time by month</summary>
+      <p>For an instrument without an equation-of-time loop (Lesson 9). Approximate mid-month values, sundial minus mean time: subtract from sundial time to get local mean time.</p>
+      <table className="eot-table" data-testid="reference-eot-table">
+        <thead><tr><th scope="col">Month</th><th scope="col">Minutes</th></tr></thead>
+        <tbody>{WATCH.table.map((row) => <tr key={row.month}><th scope="row">{row.month}</th><td>{formatEquation(row.minutes)}</td></tr>)}</tbody>
+      </table></details>
     <details><summary>Accuracy and simplifications</summary><ul>
       <li>This is an educational geometric model, not an observational-precision instrument.</li>
       <li>Star positions use the standard J2000 catalogue coordinates and do not include their slow shift over centuries.</li>
